@@ -1,0 +1,4114 @@
+<!DOCTYPE html>
+<html lang=  "th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Business Data Portal - ระบบพิมพ์สติกเกอร์ติดกระสอบ</title>
+    
+    <!-- Tailwind CSS สำหรับตกแต่งเว็บ -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- SheetJS สำหรับอ่านไฟล์ Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <!-- Phosphor Icons สำหรับไอคอน -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <!-- QRCode.js สำหรับสร้าง QR Code บนสติกเกอร์ -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+    <!-- การตั้งค่า Tailwind CSS Configuration ที่ถูกต้องผ่านแบบ CDN -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        corporate: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            200: '#bae6fd',
+                            300: '#7dd3fc',
+                            400: '#38bdf8',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            800: '#075985',
+                            900: '#0c4a6e'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['"Prompt"', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Prompt', sans-serif; }
+        
+        /* เพิ่มการตกแต่ง Scrollbar ให้สวยงามและมองเห็นได้ชัดเจนขึ้น แทนการซ่อน */
+        ::-webkit-scrollbar {
+            height: 12px; /* ความหนาของแถบเลื่อนแนวนอน */
+            width: 12px;  /* ความหนาของแถบเลื่อนแนวตั้ง */
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9; 
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 8px;
+            border: 3px solid #f1f5f9; /* เว้นขอบนิดหน่อยให้ดูมนๆ */
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+    </style>
+</head>
+<body class="bg-corporate-50 text-gray-800 min-h-screen flex flex-col">
+
+    <main class="flex-grow max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+        
+        <!-- Header Section -->
+        <div class="mb-8 text-center md:text-left">
+            <h1 class="text-3xl font-bold text-gray-900 tracking-tight">ระบบจัดทำสติกเกอร์ติดกระสอบ</h1>
+        </div>
+
+        <!-- Notification Message Box (Hidden by default) -->
+        <div id="message-box" class="hidden mb-6 p-4 rounded-lg flex items-center gap-3">
+            <i id="message-icon" class="text-2xl"></i>
+            <span id="message-text" class="font-medium"></span>
+        </div>
+
+        <!-- Upload Section -->
+        <div id="upload-section" class="bg-white p-8 rounded-xl shadow-sm border border-corporate-100 mb-8 transition-shadow duration-500">
+            <div class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-corporate-500 hover:bg-corporate-50 transition cursor-pointer relative" id="drop-zone">
+                <input type="file" id="excel-file" accept=".xlsx, .xls" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                <i class="ph ph-file-xls text-5xl text-corporate-500 mb-3"></i>
+                <h3 class="text-lg font-semibold text-gray-700">ลากไฟล์ Excel มาวางที่นี่ หรือ คลิกเพื่อเลือกไฟล์</h3>
+                <p class="text-sm text-gray-500 mt-1">ระบบจะตรวจสอบคอลัมน์และสร้างฟอร์มสติกเกอร์ให้อัตโนมัติ</p>
+                <p id="file-name-display" class="mt-4 text-corporate-600 font-medium hidden"></p>
+            </div>
+        </div>
+
+        <!-- Sheet Selector Panel (Hidden until file is uploaded and has more than 1 sheet) -->
+        <div id="sheet-select-panel" class="hidden bg-white p-4 rounded-xl shadow-sm border border-corporate-100 mb-6 flex flex-col sm:flex-row sm:items-center gap-3">
+            <label for="sheet-select" class="text-sm font-semibold text-gray-700 flex items-center gap-2 shrink-0">
+                <i class="ph ph-stack text-corporate-600"></i> เลือกชีตที่ต้องการใช้งาน (พบหลายชีตในไฟล์นี้)
+            </label>
+            <select id="sheet-select" class="flex-1 bg-corporate-50 border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-corporate-500 focus:border-corporate-500">
+                <!-- รายชื่อชีตจะสร้างที่นี่ -->
+            </select>
+        </div>
+
+        <!-- Data Display Table (Hidden until file is uploaded) -->
+        <div id="view-table" class="hidden bg-white rounded-2xl shadow-sm ring-1 ring-gray-200/80 overflow-hidden">
+            <div class="px-6 py-5 border-b border-gray-100 bg-white flex flex-wrap justify-between items-center gap-4">
+                <div class="flex items-center gap-3 flex-wrap">
+                    <span class="w-9 h-9 rounded-xl bg-corporate-50 text-corporate-600 flex items-center justify-center text-lg shrink-0">
+                        <i class="ph-fill ph-table"></i>
+                    </span>
+                    <h3 class="font-semibold text-base text-gray-900">
+                        ตารางแสดงข้อมูลรายการสินค้าในระบบ
+                    </h3>
+                    <span id="row-count" class="text-xs bg-gray-100 text-gray-600 py-1 px-3 rounded-full font-medium"></span>
+                    <label id="hidden-rows-control" class="hidden items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-100 py-1.5 px-3 rounded-full cursor-pointer">
+                        <input type="checkbox" id="skip-hidden-rows-checkbox" checked class="rounded border-amber-400 text-amber-600 focus:ring-amber-500">
+                        <span id="hidden-rows-count-text">ข้ามแถวที่ถูกซ่อน/กรองไว้ในไฟล์ Excel</span>
+                    </label>
+                </div>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <div id="print-layout-toggle" class="flex items-center gap-1 bg-gray-100 rounded-lg p-1 shrink-0" title="เลือกรูปแบบการจัดหน้าสติกเกอร์ตอนพิมพ์">
+                        <button id="btn-layout-single" type="button" data-layout="single" class="flex items-center gap-1.5 text-xs px-3 py-2 rounded-md font-semibold transition bg-white text-corporate-700 shadow-sm">
+                            <i class="ph-fill ph-rectangle"></i> 1 ใบ/แผ่น
+                        </button>
+                        <button id="btn-layout-pair" type="button" data-layout="pair" class="flex items-center gap-1.5 text-xs px-3 py-2 rounded-md font-semibold transition text-gray-500 hover:text-gray-700">
+                            <i class="ph-fill ph-squares-four"></i> 2 ใบ/แผ่น
+                        </button>
+                    </div>
+                    <button id="btn-select-all" type="button" class="text-xs text-gray-600 border border-gray-200 bg-white hover:bg-gray-50 hover:border-gray-300 px-3.5 py-2.5 rounded-lg font-medium transition">เลือกทุกแถวที่แสดงอยู่</button>
+                    <button id="btn-select-none" type="button" class="text-xs text-gray-500 border border-gray-200 bg-white hover:bg-gray-50 hover:border-gray-300 px-3.5 py-2.5 rounded-lg font-medium transition">ล้างการเลือก</button>
+                    <button id="btn-print-custom" class="bg-corporate-600 hover:bg-corporate-700 active:bg-corporate-800 text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition flex items-center gap-2 shadow-sm hover:shadow-md">
+                        <i class="ph-fill ph-printer text-lg"></i> พิมพ์แถวที่เลือก
+                    </button>
+                </div>
+            </div>
+            <p class="px-6 py-3 text-xs text-gray-500 bg-gray-50/60 border-b border-gray-100 leading-relaxed">💡 เลือกรูปแบบการจัดหน้าพิมพ์ที่มุมขวาบน ("1 ใบ/แผ่น" แนวตั้ง หรือ "2 ใบ/แผ่น" วางคู่ซ้าย-ขวา — ขนาดกระดาษเท่าเดิมทั้ง 2 แบบ) จากนั้นติ๊กเลือกแถวที่ต้องการพิมพ์ในช่องด้านซ้ายของแต่ละแถว และตั้งค่า "จำนวน (ใบ)" ตามจำนวนสติกเกอร์ที่ต้องการจากแถวนั้น แล้วกด "พิมพ์แถวที่เลือก" หรือกดปุ่มพิมพ์ 🖨️ ที่ท้ายแต่ละแถวเพื่อพิมพ์เฉพาะแถวนั้นทันที — ระบบจะแสดง รหัส/ตัวย่อ/วันหมดอายุ บนสติกเกอร์ให้อัตโนมัติ (ระบบจะข้าม Batch ที่หมดอายุไปแล้วโดยอัตโนมัติ และซ่อนทั้งแถวหากทุก Batch หมดอายุหมดแล้ว)</p>
+            
+            <!-- ตารางแสดงผลที่มีการเพิ่มแถบเลื่อน (Scrollbar) ทั้งในแนวนอนและแนวตั้ง -->
+            <div class="overflow-x-auto max-h-[600px] overflow-y-auto relative">
+                <table class="min-w-full border-collapse">
+                    <thead class="bg-gray-50 sticky top-0 z-10 after:content-[''] after:absolute after:left-0 after:right-0 after:bottom-0 after:h-px after:bg-gray-200" id="table-head">
+                        <!-- หัวตารางจะถูกสร้างที่นี่ -->
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-100" id="table-body">
+                        <!-- ข้อมูลจะถูกสร้างที่นี่ -->
+                    </tbody>
+                </table>
+            </div>
+            <div id="empty-state" class="hidden p-10 text-center text-gray-500">
+                ไม่มีข้อมูลในไฟล์นี้ หรือรูปแบบไฟล์ไม่ถูกต้อง
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Custom Modal (แจ้งเตือนผู้ใช้แทนการใช้ Alert) -->
+    <div id="custom-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full overflow-hidden transform transition-all">
+            <div class="p-6">
+                <div class="flex items-center gap-3 mb-4">
+                    <div id="modal-icon-container" class="p-2 rounded-full">
+                        <i id="modal-icon" class="text-2xl"></i>
+                    </div>
+                    <h3 id="modal-title" class="text-lg font-bold text-gray-900"></h3>
+                </div>
+                <p id="modal-body" class="text-sm text-gray-600 leading-relaxed"></p>
+            </div>
+            <div class="bg-corporate-50 px-6 py-4 flex justify-end">
+                <button id="modal-close-btn" class="bg-corporate-600 hover:bg-corporate-500 text-white px-5 py-2 rounded-lg text-sm font-medium transition">ตกลง</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-corporate-100 mt-auto">
+        <div class="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 py-6 text-center text-sm text-gray-500">
+            ระบบทำงานผ่าน Browser เท่านั้น
+        </div>
+    </footer>
+
+    <!-- JavaScript Logic -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const fileInput = document.getElementById('excel-file');
+            const dropZone = document.getElementById('drop-zone');
+            const fileNameDisplay = document.getElementById('file-name-display');
+            const tableHead = document.getElementById('table-head');
+            const tableBody = document.getElementById('table-body');
+            const rowCount = document.getElementById('row-count');
+            const emptyState = document.getElementById('empty-state');
+            const messageBox = document.getElementById('message-box');
+            const messageIcon = document.getElementById('message-icon');
+            const messageText = document.getElementById('message-text');
+            const btnPrintCustom = document.getElementById('btn-print-custom');
+            const btnSelectAll = document.getElementById('btn-select-all');
+            const btnSelectNone = document.getElementById('btn-select-none');
+            const btnLayoutSingle = document.getElementById('btn-layout-single');
+            const btnLayoutPair = document.getElementById('btn-layout-pair');
+
+            // View Table
+            const viewTable = document.getElementById('view-table');
+            const hiddenRowsControl = document.getElementById('hidden-rows-control');
+            const skipHiddenRowsCheckbox = document.getElementById('skip-hidden-rows-checkbox');
+            const hiddenRowsCountText = document.getElementById('hidden-rows-count-text');
+
+            // Sheet Selector (รองรับไฟล์ที่มีหลายชีต)
+            const sheetSelectPanel = document.getElementById('sheet-select-panel');
+            const sheetSelect = document.getElementById('sheet-select');
+
+            // ส่วนประกอบสำหรับ Custom Modal
+            const customModal = document.getElementById('custom-modal');
+            const modalTitle = document.getElementById('modal-title');
+            const modalBody = document.getElementById('modal-body');
+            const modalIcon = document.getElementById('modal-icon');
+            const modalIconContainer = document.getElementById('modal-icon-container');
+            const modalCloseBtn = document.getElementById('modal-close-btn');
+
+            let globalWorkbook = null;      // เก็บ workbook ทั้งไฟล์ไว้ เผื่อผู้ใช้สลับไปอ่านชีตอื่น
+            let globalExcelData = null;     // ข้อมูลดิบทั้งหมดของชีตปัจจุบัน (array of arrays)
+            let globalHiddenRows = new Set(); // แถว (0-indexed ตรงกับ globalExcelData) ที่ถูกซ่อน/กรองไว้ใน Excel ต้นฉบับ
+            let headerRowIndex = 0;         // แถวหัวตารางที่ตรวจจับได้อัตโนมัติ (0-indexed)
+            let headers = [];               // หัวตารางปัจจุบัน
+            let printFields = [];           // ฟิลด์ที่จะแสดงบนสติกเกอร์ (คำนวณอัตโนมัติจากชื่อคอลัมน์ ไม่ต้องตั้งค่าเอง)
+            let businessColumnIndices = []; // ดัชนีคอลัมน์ทั้งหมดที่จัดหมวดหมู่ได้ (ชื่อ/รหัส/ตัวย่อ/Batch/EXP) ใช้เช็คว่าแถวไหนเป็นข้อมูลจริง
+            let expColumnIndices = [];      // ดัชนีคอลัมน์วันหมดอายุ ใช้กรองแสดงเฉพาะแถวที่มีวันหมดอายุจริง
+            let batchNoColumnIndices = [];  // ดัชนีคอลัมน์ Batch No. เรียงตามลำดับกลุ่มเดียวกับ expColumnIndices ใช้ต่อท้าย Batch No. ให้ตรงกับวันหมดอายุที่เลือกแสดง
+            let batchColumnIndices = [];    // ดัชนีคอลัมน์ Batch ตัวเต็ม (LOT) เรียงตามลำดับกลุ่มเดียวกับ expColumnIndices ใช้แสดงเป็นบรรทัด "Batch:" และใน QR Code ให้ตรงกับ Batch ที่ยังไม่หมดอายุ
+            let qrFieldIndices = {};        // ดัชนีคอลัมน์เดี่ยว (ไม่แยกกลุ่ม Batch) ที่ใช้ประกอบข้อมูลใน QR Code: code(Mat)/hu/weightperbag/totalkg
+            let receivedDateColumnIndex = null; // ดัชนีคอลัมน์ "วันรับเข้า" (คอลัมน์เดี่ยว ไม่แยกกลุ่ม 1/2/3 เหมือน Batch/EXP)
+            let selectedPrintRows = new Set(); // originalIndex ของแถวที่ผู้ใช้ติ๊กเลือกไว้เพื่อพิมพ์
+            let printQuantities = new Map();   // originalIndex -> จำนวน "ใบ" ที่ต้องการพิมพ์ต่อแถว (ค่าเริ่มต้น 1 ใบ) — 1 แผ่น = 1 ใบเสมอ
+            let selectedBatchPosition = new Map(); // originalIndex -> ตำแหน่งกลุ่ม Batch (0/1/2) ที่ผู้ใช้เลือกจาก Dropdown เอง เป็นแค่ label เลข 01/02 ต่อท้ายบรรทัด EXP (ถ้ายังไม่เลือก ระบบจะหาอัตโนมัติให้)
+            let selectedHu = new Map();            // originalIndex -> ค่า HU ที่ผู้ใช้เลือกจาก Dropdown เอง (กรณีช่อง HU มีหลายค่าคั่นด้วย "/", "-" หรือ "+")
+            let selectedSubOption = new Map();     // originalIndex -> array ของ key "ตำแหน่งกลุ่ม:ลำดับค่าย่อย" (เช่น "0:1") ที่ผู้ใช้เลือกจาก Dropdown เอง (เลือกได้หลายอัน) จาก getAllBatchExpOptionsForRow — ถ้ายังไม่เลือก ระบบจะหาอัตโนมัติให้ 1 รายการ
+            let activeBatchPositions = [];  // ตำแหน่งกลุ่ม Batch (0/1/2 => 01/02/03) ที่ "ไฟล์นี้มีข้อมูลใช้งานจริงอย่างน้อย 1 แถว" (เช็คทั้ง Batch No./Batch/วันหมดอายุ)
+                                             // ใช้ทำ Dropdown ให้ทุกแถวเลือกได้ทุกกลุ่มที่ไฟล์นี้ใช้งานจริงเสมอ (เช่น 01/02) โดยไม่โชว์กลุ่มที่ไม่เคยมีข้อมูลเลย (เช่น 03)
+            let printLayoutMode = 'single'; // รูปแบบการจัดหน้าพิมพ์ที่ผู้ใช้เลือกไว้: 'single' = 1 ใบ/แผ่น (แนวตั้ง ข้อความหมุน 90 องศา), 'pair' = 2 ใบ/แผ่น (วางคู่ซ้าย-ขวา ในกระดาษขนาดเดิม)
+
+            // ปุ่มสลับรูปแบบการจัดหน้าพิมพ์ (1 ใบ/แผ่น หรือ 2 ใบ/แผ่น) — แค่เปลี่ยนตัวแปร printLayoutMode และอัปเดตสไตล์ปุ่มให้ตรงกับตัวที่เลือกอยู่
+            function updatePrintLayoutButtons() {
+                const activeCls = ['bg-white', 'text-corporate-700', 'shadow-sm'];
+                const inactiveCls = ['text-gray-500'];
+                [btnLayoutSingle, btnLayoutPair].forEach(btn => {
+                    const isActive = btn.dataset.layout === printLayoutMode;
+                    btn.classList.toggle('bg-white', isActive);
+                    btn.classList.toggle('text-corporate-700', isActive);
+                    btn.classList.toggle('shadow-sm', isActive);
+                    btn.classList.toggle('text-gray-500', !isActive);
+                    btn.classList.toggle('hover:text-gray-700', !isActive);
+                });
+            }
+            btnLayoutSingle.addEventListener('click', () => {
+                printLayoutMode = 'single';
+                updatePrintLayoutButtons();
+            });
+            btnLayoutPair.addEventListener('click', () => {
+                printLayoutMode = 'pair';
+                updatePrintLayoutButtons();
+            });
+
+            // ฟังก์ชันปิด Modal
+            modalCloseBtn.addEventListener('click', () => {
+                customModal.classList.add('hidden');
+            });
+
+            // ฟังก์ชันแสดง Modal แจ้งเตือนสวยๆ แทน Alert
+            function showCustomModal(title, text, type = 'error') {
+                modalTitle.textContent = title;
+                modalBody.textContent = text;
+                
+                if (type === 'error') {
+                    modalIconContainer.className = 'p-2 rounded-full bg-red-100 text-red-600';
+                    modalIcon.className = 'ph ph-warning-circle';
+                    modalCloseBtn.className = 'bg-red-600 hover:bg-red-500 text-white px-5 py-2 rounded-lg text-sm font-medium transition';
+                } else if (type === 'warning') {
+                    modalIconContainer.className = 'p-2 rounded-full bg-amber-100 text-amber-600';
+                    modalIcon.className = 'ph ph-warning';
+                    modalCloseBtn.className = 'bg-amber-600 hover:bg-amber-500 text-white px-5 py-2 rounded-lg text-sm font-medium transition';
+                } else {
+                    modalIconContainer.className = 'p-2 rounded-full bg-green-100 text-green-600';
+                    modalIcon.className = 'ph ph-check-circle';
+                    modalCloseBtn.className = 'bg-corporate-600 hover:bg-corporate-500 text-white px-5 py-2 rounded-lg text-sm font-medium transition';
+                }
+                customModal.classList.remove('hidden');
+            }
+
+            // จัดการ Event การเลือกไฟล์
+            fileInput.addEventListener('change', handleFileSelect);
+
+            // จัดการ Drag & Drop
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('bg-corporate-50', 'border-corporate-500');
+            });
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.classList.remove('bg-corporate-50', 'border-corporate-500');
+            });
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('bg-corporate-50', 'border-corporate-500');
+                if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    fileInput.files = e.dataTransfer.files;
+                    handleFileSelect({ target: fileInput });
+                }
+            });
+
+            function showMessage(type, text) {
+                messageBox.classList.remove('hidden', 'bg-red-50', 'text-red-700', 'bg-green-50', 'text-green-700');
+                if (type === 'error') {
+                    messageBox.classList.add('bg-red-50', 'text-red-700');
+                    messageIcon.className = 'ph-fill ph-warning-circle text-2xl text-red-500';
+                } else if (type === 'success') {
+                    messageBox.classList.add('bg-green-50', 'text-green-700');
+                    messageIcon.className = 'ph-fill ph-check-circle text-2xl text-green-500';
+                }
+                messageText.textContent = text;
+            }
+
+            function handleFileSelect(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                // ตรวจสอบนามสกุลไฟล์
+                const validExts = ['.xlsx', '.xls'];
+                const fileExt = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+                
+                if (!validExts.includes(fileExt)) {
+                    showMessage('error', 'กรุณาอัปโหลดไฟล์ Excel (.xlsx หรือ .xls) เท่านั้น');
+                    return;
+                }
+
+                fileNameDisplay.textContent = `ไฟล์ที่เลือก: ${file.name}`;
+                fileNameDisplay.classList.remove('hidden');
+                
+                // อ่านไฟล์ด้วย FileReader
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        // หมายเหตุ: ไม่ใช้ cellDates:true เพราะการแปลงเป็น JS Date object ของ SheetJS ขึ้นกับโซนเวลา
+                        // ของเครื่องที่รันโค้ด (พบว่าให้ผลลัพธ์ต่างกันในบางกรณี) เราจะอ่านค่าตัวเลขดิบ (serial number)
+                        // แล้วแปลงเป็นวัน/เดือน/ปีด้วยฟังก์ชันคำนวณล้วนๆ ของ SheetJS เอง (ไม่ผ่าน Date object เลย) แทน
+                        // cellNF: true ทำให้เซลล์แต่ละอันมีข้อมูล number format (z) ติดมาด้วย ใช้เช็คว่าเซลล์ไหนคือวันที่
+                        // cellStyles: true จำเป็นสำหรับให้ SheetJS อ่านเมทาดาต้าของแถว (worksheet['!rows']) ออกมาด้วย
+                        // (ถ้าไม่เปิด ตัว SheetJS จะไม่ parse แอตทริบิวต์ hidden="1" ของแท็ก <row> เลย ทำให้ระบบตรวจไม่พบ
+                        // แถวที่ถูกซ่อน/กรองไว้ด้วย AutoFilter ในไฟล์ต้นฉบับ และแสดงแถวเหล่านั้นในตารางทั้งที่ควรถูกข้าม)
+                        globalWorkbook = XLSX.read(data, {type: 'array', cellNF: true, cellStyles: true});
+
+                        // สร้างตัวเลือกชีตทั้งหมดในไฟล์ (แสดงเฉพาะเมื่อมีมากกว่า 1 ชีต)
+                        sheetSelect.innerHTML = '';
+                        globalWorkbook.SheetNames.forEach((name) => {
+                            const opt = document.createElement('option');
+                            opt.value = name;
+                            opt.textContent = name;
+                            sheetSelect.appendChild(opt);
+                        });
+
+                        if (globalWorkbook.SheetNames.length > 1) {
+                            sheetSelectPanel.classList.remove('hidden');
+                        } else {
+                            sheetSelectPanel.classList.add('hidden');
+                        }
+
+                        // โหลดชีตแรกเป็นค่าเริ่มต้นเสมอเมื่ออัปโหลดไฟล์ใหม่
+                        sheetSelect.value = globalWorkbook.SheetNames[0];
+                        loadSheet(globalWorkbook.SheetNames[0]);
+                    } catch (error) {
+                        console.error(error);
+                        showMessage('error', 'เกิดข้อผิดพลาดในการอ่านไฟล์ โปรดตรวจสอบความถูกต้องของโครงสร้างไฟล์');
+                    }
+                };
+
+                reader.readAsArrayBuffer(file);
+            }
+
+            // --- โหลดข้อมูลจากชีตที่ระบุ (ใช้ทั้งตอนอัปโหลดไฟล์ครั้งแรก และตอนสลับชีตภายในไฟล์เดียวกัน) ---
+            function loadSheet(sheetName) {
+                if (!globalWorkbook) return;
+                try {
+                    const worksheet = globalWorkbook.Sheets[sheetName];
+
+                    // ดึงข้อมูลในรูปแบบข้อความ (raw: false) ป้องกันปัญหาวันที่เพี้ยนเป็นตัวเลขดิบของ Excel
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, {header: 1, defval: "", raw: false});
+
+                    // แก้ปัญหาวันที่คลาดเคลื่อน (สลับวัน/เดือน หรือถอยหลัง/เดินหน้าไป 1 วัน):
+                    // ตรวจจับเซลล์ที่เป็นตัวเลขวันที่ของ Excel (เช็คจากรูปแบบการแสดงผล/number format ของเซลล์)
+                    // แล้วแปลง "ตัวเลข serial" เป็นวัน/เดือน/ปีด้วยฟังก์ชันคำนวณล้วนๆ ของ SheetJS (SSF.parse_date_code)
+                    // ซึ่งไม่ผ่าน JS Date object เลย จึงไม่มีปัญหาโซนเวลาของเครื่องที่เปิดไฟล์เข้ามาเกี่ยวข้องแต่อย่างใด
+                    // (การใช้ JS Date object หรือ cellDates:true พบว่าให้ผลลัพธ์ต่างกันในบางโซนเวลา เนื่องจากไลบรารีอ้างอิง
+                    // ปฏิทินสากลปี 1899 ซึ่งข้อมูลโซนเวลาย้อนหลังในเครื่องอาจไม่ตรงกัน ทำให้วันที่คลาดเคลื่อนได้)
+                    const isDateFormat = (fmt) => {
+                        if (!fmt) return false;
+                        // ตัดส่วนที่เป็นข้อความในเครื่องหมายคำพูดออกก่อน กันคำที่มีตัวอักษร d/m/y ปนอยู่ในข้อความไปกวนผล
+                        const cleaned = fmt.replace(/"[^"]*"/g, '');
+                        return /[dmy]/i.test(cleaned) && !/general/i.test(cleaned);
+                    };
+                    if (worksheet['!ref']) {
+                        const range = XLSX.utils.decode_range(worksheet['!ref']);
+                        for (let r = range.s.r; r <= range.e.r; r++) {
+                            const dataRowIdx = r - range.s.r;
+                            if (!jsonData[dataRowIdx]) continue;
+                            for (let c = range.s.c; c <= range.e.c; c++) {
+                                const cellAddr = XLSX.utils.encode_cell({ r, c });
+                                const cell = worksheet[cellAddr];
+                                if (cell && cell.t === 'n' && typeof cell.v === 'number' && isDateFormat(cell.z)) {
+                                    const dc = XLSX.SSF.parse_date_code(cell.v);
+                                    if (dc && dc.y && dc.m && dc.d) {
+                                        const colIdx = c - range.s.c;
+                                        jsonData[dataRowIdx][colIdx] = `${dc.d}/${dc.m}/${dc.y}`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    globalExcelData = jsonData;
+
+                    // ตรวจจับแถวที่ถูกซ่อน/กรองไว้ใน Excel ต้นฉบับ (เช่น ใช้ Filter ซ่อนบางแถว) จาก metadata ของ worksheet
+                    globalHiddenRows = new Set();
+                    const rowsMeta = worksheet['!rows'];
+                    if (rowsMeta) {
+                        rowsMeta.forEach((rowInfo, idx) => {
+                            if (rowInfo && rowInfo.hidden) globalHiddenRows.add(idx);
+                        });
+                    }
+                    if (globalHiddenRows.size > 0) {
+                        hiddenRowsControl.classList.remove('hidden');
+                        hiddenRowsControl.classList.add('flex');
+                        hiddenRowsCountText.textContent = `พบ ${globalHiddenRows.size} แถวที่ถูกซ่อน/กรองไว้ — ข้ามไม่พิมพ์แถวเหล่านี้`;
+                        skipHiddenRowsCheckbox.checked = true; // ค่าเริ่มต้น: ข้ามแถวที่ซ่อนไว้ ให้ตรงกับสิ่งที่มองเห็นใน Excel
+                    } else {
+                        hiddenRowsControl.classList.add('hidden');
+                        hiddenRowsControl.classList.remove('flex');
+                    }
+
+                    // ชีตใหม่ -> ตรวจจับหัวตารางและฟิลด์สำหรับพิมพ์ใหม่อัตโนมัติ พร้อมล้างแถวที่เคยเลือกไว้พิมพ์
+                    headerRowIndex = detectHeaderRow(jsonData);
+                    headers = jsonData[headerRowIndex] || [];
+                    printFields = buildPrintFields(headers);
+                    activeBatchPositions = computeActiveBatchPositions(jsonData, headerRowIndex);
+                    selectedPrintRows = new Set();
+                    printQuantities = new Map();
+                    // ไฟล์/ชีตใหม่ -> ล้างค่า Batch/HU ที่ผู้ใช้เคยเลือกเองไว้จากไฟล์ก่อนหน้าด้วย
+                    // (ไม่งั้น originalIndex ของแถวในไฟล์ใหม่อาจไปตรงกับที่เคยเลือกไว้ในไฟล์เก่าโดยบังเอิญ
+                    // ทำให้ Dropdown ไม่ได้ขึ้นค่าเริ่มต้นของไฟล์ใหม่จริงๆ ตามที่ควรจะเป็น)
+                    selectedBatchPosition = new Map();
+                    selectedHu = new Map();
+                    selectedSubOption = new Map();
+
+                    viewTable.classList.remove('hidden');
+                    renderTable();
+
+                    showMessage('success', `ดึงหัวข้อข้อมูลสำเร็จจากชีต: ${sheetName}`);
+                } catch (error) {
+                    console.error(error);
+                    showMessage('error', 'เกิดข้อผิดพลาดในการอ่านชีตนี้ โปรดตรวจสอบความถูกต้องของโครงสร้างข้อมูล');
+                }
+            }
+
+            // --- แปลงข้อความวันที่รูปแบบ D/M/YYYY (ตามที่ระบบฟอร์แมตให้ตอนอ่านไฟล์) กลับเป็น Date object ---
+            // คืนค่า null หากไม่ตรงรูปแบบ (ป้องกันไม่ให้ไปตัดสินใจผิดกับข้อความที่ไม่ใช่วันที่)
+            function parseDMY(text) {
+                if (text === undefined || text === null) return null;
+                const str = text.toString().trim();
+                const match = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+                if (!match) return null;
+                const day = parseInt(match[1], 10);
+                const month = parseInt(match[2], 10);
+                const year = parseInt(match[3], 10);
+                if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+                return new Date(year, month - 1, day);
+            }
+
+            // เช็คว่าวันที่ในข้อความนี้ "หมดอายุแล้ว" หรือยัง (เทียบกับวันนี้)
+            // หากแปลงวันที่ไม่ได้ ให้ถือว่ายังไม่หมดอายุไว้ก่อน เพื่อไม่ซ่อนข้อมูลที่ไม่แน่ใจไปโดยไม่ตั้งใจ
+            function isExpiredDate(text) {
+                const d = parseDMY(text);
+                if (!d) return false;
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                return d.getTime() < today.getTime();
+            }
+
+            // --- ตัดค่าที่คั่นด้วยตัวคั่นที่ระบุออกเป็นรายการย่อย (trim แต่ละค่า และตัดค่าว่างทิ้ง) ---
+            // ใช้กับช่องที่บางแถวมีมากกว่า 1 ค่าในเซลล์เดียว เช่น Batch ตัวเต็มคั่นด้วย "/" หรือวันหมดอายุคั่นด้วย ","
+            function splitMultiValue(text, delimiter) {
+                if (text === undefined || text === null) return [];
+                const s = text.toString().trim();
+                if (s === '') return [];
+                return s.split(delimiter).map(x => x.trim()).filter(x => x !== '');
+            }
+
+            // ตัวเลือกย่อยของ "Batch ตัวเต็ม" ในเซลล์เดียว คั่นด้วย "/" เช่น "LOT9CTNN11/DUR8FSNN11" -> ["LOT9CTNN11","DUR8FSNN11"]
+            function getBatchSubOptions(text) {
+                return splitMultiValue(text, '/');
+            }
+
+            // ตัวเลือกย่อยของ "วันหมดอายุ" ในเซลล์เดียว คั่นด้วย "," (ไม่ใช้ "/" เพราะรูปแบบวันที่เองก็มี "/" อยู่แล้ว)
+            // เช่น "13/1/2028,28/4/2027" -> ["13/1/2028","28/4/2027"]
+            function getExpSubOptions(text) {
+                return splitMultiValue(text, ',');
+            }
+
+            // หาค่าวันหมดอายุ "ที่ยังไม่หมดอายุ" ตัวแรกจากเซลล์เดียว ซึ่งอาจมีหลายค่าคั่นด้วย "," อยู่ในเซลล์นั้น
+            // คืนค่า {value, subIndex} โดย subIndex คือลำดับค่าย่อยที่เลือก (0,1,2,...) ใช้ไปจับคู่กับ Batch ตัวเต็มย่อยตำแหน่งเดียวกัน
+            // คืนค่า null หากไม่มีข้อมูล หรือทุกค่าย่อยหมดอายุหมดแล้ว
+            function pickBestExpSubOption(expText) {
+                const hasVal = expText !== undefined && expText !== null && expText.toString().trim() !== '';
+                if (!hasVal) return null;
+                const parts = getExpSubOptions(expText);
+                if (parts.length <= 1) {
+                    if (isExpiredDate(expText)) return null;
+                    return { value: expText, subIndex: 0 };
+                }
+                for (let i = 0; i < parts.length; i++) {
+                    if (!isExpiredDate(parts[i])) {
+                        return { value: parts[i], subIndex: i };
+                    }
+                }
+                return null;
+            }
+
+            // คืนค่า {value, position, subIndex} ของวันหมดอายุตัวแรกที่ "มีข้อมูลจริง และยังไม่หมดอายุ" จากรายการดัชนีคอลัมน์ที่ให้มา (เช่น Batch(1)/(2)/(3))
+            // position คือลำดับใน indices ที่เจอ (0,1,2) ใช้ไปจับคู่กับ Batch No. ของกลุ่มเดียวกันต่อ
+            // subIndex คือลำดับค่าย่อยภายในเซลล์นั้น (กรณีเซลล์มีหลายค่าคั่นด้วย "," เช่น "13/1/2028,28/4/2027")
+            // ใช้กรอง Batch ที่หมดอายุไปแล้วออกจากการแสดงผลและการพิมพ์ (ถ้า Batch(2) หมดอายุแล้ว จะข้ามไปดู Batch(1)/Batch(3) แทน)
+            // คืนค่า null หากทุก Batch ในแถวนี้หมดอายุหมดแล้ว หรือไม่มีข้อมูลวันหมดอายุเลย
+            function getFirstValidExpEntry(row, indices) {
+                for (let i = 0; i < indices.length; i++) {
+                    const idx = indices[i];
+                    const picked = pickBestExpSubOption(row[idx]);
+                    if (picked !== null) {
+                        return { value: picked.value, position: i, subIndex: picked.subIndex };
+                    }
+                }
+                return null;
+            }
+
+            // เวอร์ชันเดิมที่คืนแค่ค่าวันที่ (ใช้กับส่วนที่ไม่ต้องรู้ตำแหน่งกลุ่ม เช่น ตัวกรองแถวที่แสดงในตาราง)
+            function getFirstValidExpValue(row, indices) {
+                const entry = getFirstValidExpEntry(row, indices);
+                return entry ? entry.value : null;
+            }
+
+            // หา "ตัวเลือกย่อย Batch/วันหมดอายุ" ของกลุ่ม Batch ตำแหน่งที่กำหนด (groupPosition) สำหรับแถวนี้
+            // กรณีเซลล์ Batch ตัวเต็มและ/หรือเซลล์วันหมดอายุของกลุ่มนั้นมีมากกว่า 1 ค่าในเซลล์เดียว (คั่นด้วย "/" หรือ ",")
+            // จับคู่ค่าย่อยตามลำดับตำแหน่ง (ค่าย่อยที่ 1 ของ Batch คู่กับค่าย่อยที่ 1 ของวันหมดอายุ เป็นต้น)
+            // คืนค่า [] หากกลุ่มนี้มีค่าเดียวหรือไม่มีข้อมูล (ไม่จำเป็นต้องมี Dropdown ให้เลือก)
+            function getSubOptionsForRow(row, groupPosition) {
+                if (groupPosition === null || groupPosition === undefined) return [];
+                const batchIdx = batchColumnIndices[groupPosition];
+                const expIdx = expColumnIndices[groupPosition];
+                const batchParts = batchIdx !== undefined ? getBatchSubOptions(row[batchIdx]) : [];
+                const expParts = expIdx !== undefined ? getExpSubOptions(row[expIdx]) : [];
+                const count = Math.max(batchParts.length, expParts.length);
+                if (count <= 1) return [];
+                const options = [];
+                for (let i = 0; i < count; i++) {
+                    const b = batchParts[i] !== undefined ? batchParts[i] : (batchParts[batchParts.length - 1] || '');
+                    const e = expParts[i] !== undefined ? expParts[i] : (expParts[expParts.length - 1] || '');
+                    options.push({ index: i, batch: b, exp: e, label: [b, e].filter(s => s !== '').join(' — ') || `ตัวเลือก ${i + 1}` });
+                }
+                return options;
+            }
+
+            // หา "Batch/EXP ทุกรายการจริง" ของแถวนี้ รวมทุกกลุ่ม (01/02/03) และทุกค่าย่อยในเซลล์เดียวกัน (คั่นด้วย "/" หรือ ",") เป็นรายการเดียวให้เลือกได้หลายอัน
+            // ข้ามรายการที่หมดอายุไปแล้วออกจากตัวเลือก (เหมือนพฤติกรรมเดิมของ pickBestExpSubOption/getFirstValidExpEntry)
+            // key ของแต่ละรายการคือ "ตำแหน่งกลุ่ม:ลำดับค่าย่อย" เช่น "0:1" ใช้อ้างอิงตอนพิมพ์เพื่อดึงข้อมูลจริง (Batch/EXP) ของรายการนั้นๆ กลับมา
+            function getAllBatchExpOptionsForRow(row) {
+                const hasVal = (v) => v !== undefined && v !== null && v.toString().trim() !== '';
+                const options = [];
+                activeBatchPositions.forEach(pos => {
+                    const batchIdx = batchColumnIndices[pos];
+                    const expIdx = expColumnIndices[pos];
+                    const batchRaw = batchIdx !== undefined ? row[batchIdx] : undefined;
+                    const expRaw = expIdx !== undefined ? row[expIdx] : undefined;
+                    if (!hasVal(batchRaw) && !hasVal(expRaw)) return; // กลุ่มนี้ไม่มีข้อมูลใช้งานจริงในแถวนี้
+                    const batchParts = getBatchSubOptions(batchRaw);
+                    const expParts = getExpSubOptions(expRaw);
+                    const count = Math.max(batchParts.length, expParts.length, 1);
+                    for (let i = 0; i < count; i++) {
+                        const b = batchParts[i] !== undefined ? batchParts[i] : (batchParts[batchParts.length - 1] || '');
+                        const e = expParts[i] !== undefined ? expParts[i] : (expParts[expParts.length - 1] || '');
+                        if (hasVal(e) && isExpiredDate(e)) continue; // ข้ามรายการย่อยที่หมดอายุไปแล้ว
+                        const groupLabel = String(pos + 1).padStart(2, '0');
+                        const label = `${groupLabel}: ${[b, e].filter(s => hasVal(s)).join(' — ')}`;
+                        options.push({ key: `${pos}:${i}`, position: pos, subIndex: i, batch: b, exp: e, label });
+                    }
+                });
+                return options;
+            }
+
+            // คืนรายการ key ของ Batch/EXP ที่ "กำลังเลือกอยู่จริง" สำหรับแถวนี้:
+            // - ถ้าผู้ใช้เคยเลือกเองจาก Dropdown ไว้แล้ว (มีใน selectedSubOption) และตัวเลือกนั้นยังมีอยู่จริงในไฟล์ปัจจุบัน ใช้ตามที่เลือกไว้
+            // - ถ้ายังไม่เคยเลือกเอง ใช้ค่าเริ่มต้นเดียวกับที่ระบบเคยหาให้อัตโนมัติ (Batch ตัวแรกที่มีข้อมูลจริงและยังไม่หมดอายุ)
+            function getEffectiveSelectedKeys(originalIndex, row, allOptions) {
+                if (allOptions.length === 0) return [];
+                if (selectedSubOption.has(originalIndex)) {
+                    const saved = selectedSubOption.get(originalIndex);
+                    const validKeys = new Set(allOptions.map(o => o.key));
+                    const filtered = (Array.isArray(saved) ? saved : [saved]).filter(k => validKeys.has(k));
+                    if (filtered.length > 0) return filtered;
+                }
+                const auto = expColumnIndices.length > 0 ? getFirstValidExpEntry(row, expColumnIndices) : null;
+                if (auto !== null) {
+                    const autoKey = `${auto.position}:${auto.subIndex}`;
+                    if (allOptions.some(o => o.key === autoKey)) return [autoKey];
+                }
+                return [allOptions[0].key];
+            }
+
+            // สลับชีต -> โหลดข้อมูลของชีตที่เลือกใหม่ทั้งหมด
+            sheetSelect.addEventListener('change', () => {
+                loadSheet(sheetSelect.value);
+            });
+
+            // ปิด Dropdown "Batch/EXP" ที่กำลังกางอยู่ ถ้าคลิกที่อื่นนอกกรอบ Dropdown นั้น (ลงทะเบียน listener เดียวใช้ร่วมกันทุกแถว กันหน่วยความจำรั่วจากการสร้าง listener ซ้ำทุกครั้งที่ renderTable)
+            document.addEventListener('click', (e) => {
+                document.querySelectorAll('.batch-exp-dropdown-panel-open').forEach(panel => {
+                    const wrap = panel.closest('.batch-exp-dropdown-wrap');
+                    if (!wrap || !wrap.contains(e.target)) {
+                        panel.classList.add('hidden');
+                        panel.classList.remove('batch-exp-dropdown-panel-open');
+                    }
+                });
+            });
+
+            // --- ตรวจจับแถวหัวตารางอัตโนมัติ ---
+            // ใช้เกณฑ์แบบสัดส่วน: หัวตารางจริงมักมีข้อมูลเต็มแทบทุกคอลัมน์ ต่างจากแถวชื่อบริษัท/หัวข้อรายงาน
+            // ที่มักมีข้อมูลแค่ 1-2 ช่องเท่านั้น
+            function detectHeaderRow(data) {
+                const scanLimit = Math.min(data.length, 15);
+                const countNonEmpty = (row) => (row || []).filter(cell => cell !== undefined && cell !== null && cell.toString().trim() !== '').length;
+
+                // เดิมใช้ row.length (จำนวนคอลัมน์ตาม dimension ที่ Excel ประกาศไว้ในไฟล์) เป็นฐานคำนวณเกณฑ์
+                // แต่บางไฟล์ (โดยเฉพาะไฟล์ที่ export จากระบบ/มาโคร หรือมีแถวที่ถูกกรองซ่อนด้วย AutoFilter)
+                // มี metadata ตกค้างทำให้ dimension บวมเกินจริงไปถึงคอลัมน์สุดท้ายของ Excel (เช่น XFD = 16,384 คอลัมน์)
+                // ทั้งที่ข้อมูลจริงมีแค่ไม่กี่สิบคอลัมน์ ทำให้ relativeThreshold พุ่งสูงจนไม่มีแถวไหนผ่านเกณฑ์ได้เลย
+                // แก้โดยใช้ "จำนวนช่องที่มีข้อมูลจริงมากที่สุดในแถวที่สแกน" เป็นฐานแทน ซึ่งทนทานทั้งต่อ dimension ที่บวมเกินจริง
+                // และต่อกรณีชีตมีคอลัมน์กว้างจริง ๆ เกิน 16,384 คอลัมน์ (ฐานคำนวณอิงข้อมูลจริงในเซลล์ ไม่อิงจำนวนคอลัมน์ที่ Excel ประกาศไว้)
+                const columnCount = data.slice(0, scanLimit).reduce((max, row) => Math.max(max, countNonEmpty(row)), 0);
+                const relativeThreshold = Math.max(3, Math.floor(columnCount * 0.4));
+
+                for (let i = 0; i < scanLimit; i++) {
+                    if (countNonEmpty(data[i]) >= relativeThreshold) return i;
+                }
+                for (let i = 0; i < scanLimit; i++) {
+                    if (countNonEmpty(data[i]) >= 2) return i;
+                }
+                return 0;
+            }
+
+            // ตัดเลขในวงเล็บท้ายชื่อคอลัมน์ออก เช่น "Batch (1)" -> "Batch" เพื่อจัดกลุ่มคอลัมน์ที่เป็นชุดเดียวกัน
+            function normalizeHeaderForGrouping(text) {
+                return text.replace(/\s*\(\s*\d+\s*\)\s*$/, '').trim();
+            }
+
+            // --- จัดหมวดหมู่ชื่อคอลัมน์ (หลังตัดวงเล็บท้าย) ให้ตรงกับฟิลด์มาตรฐานบนสติกเกอร์ ---
+            function classifyHeaderGroup(name) {
+                const n = name.toLowerCase();
+                if (n.includes('วันหมดอายุ') || n.includes('หมดอายุ') || n.includes('exp')) {
+                    return { category: 'exp', fontSize: 30, required: false, order: 6, prefix: '' };
+                }
+                if (n.includes('batch') && (n.includes('no') || n.includes('เลข'))) {
+                    return { category: 'batchno', fontSize: 18, required: false, order: 4, prefix: '' };
+                }
+                // เดิมเช็คแบบ n === 'batch' (ต้องตรงเป๊ะ) ทำให้พลาดชื่อคอลัมน์แบบ "Batch1"/"Batch 3" (ไม่มีวงเล็บ ไม่มีตัวคั่นก่อนเลข)
+                // เปลี่ยนเป็นเช็คว่า "มีคำว่า batch/ล็อต/lot อยู่ในชื่อ" ก็พอ (เช็ค batchno ผ่านไปแล้วด้านบน จึงไม่ชนกัน)
+                if (n.includes('batch') || n.includes('ล็อต') || n.includes('lot')) {
+                    return { category: 'batch', fontSize: 18, required: false, order: 5, prefix: 'Batch : ' };
+                }
+                if (n.includes('รหัส') || n.includes('code')) {
+                    return { category: 'code', fontSize: 32, required: false, order: 3, prefix: 'Mat : ' };
+                }
+                if (n.includes('ตัวย่อ') || n === 'ย่อ') {
+                    return { category: 'abbr', fontSize: 26, required: false, order: 2, prefix: 'Mat Name : ' };
+                }
+                if (n.includes('วันรับเข้า') || n.includes('วันที่รับเข้า')) {
+                    return { category: 'receiveddate', fontSize: 18, required: false, order: 5.5, prefix: 'REC : ' };
+                }
+                if (n.includes('ส่วนผสม') || n.includes('ชื่อสินค้า') || n.includes('product') || n.includes('item')) {
+                    return { category: 'name', fontSize: 26, required: false, order: 1, prefix: '' };
+                }
+                // ฟิลด์ต่อไปนี้ไม่แสดงเป็นบรรทัดข้อความบนสติกเกอร์ (ไม่อยู่ใน allowedOnSticker) แต่ใช้ประกอบข้อมูลใน QR Code เท่านั้น
+                if (n === 'hu') {
+                    return { category: 'hu', fontSize: 0, required: false, order: 90, prefix: '' };
+                }
+                if (n.includes('น้ำหนักต่อกระสอบ')) {
+                    return { category: 'weightperbag', fontSize: 0, required: false, order: 91, prefix: '' };
+                }
+                if (n.includes('total')) {
+                    return { category: 'totalkg', fontSize: 0, required: false, order: 92, prefix: '' };
+                }
+                return null;
+            }
+
+            // --- สร้างรายการฟิลด์ที่จะแสดงบนสติกเกอร์โดยอัตโนมัติ จากชื่อคอลัมน์ในไฟล์ ---
+            // จับกลุ่มคอลัมน์ Batch No./Batch/วันหมดอายุ ที่ซ้ำกันในไฟล์ (กี่กลุ่มก็ได้ ไม่จำกัดตายตัวที่ 2 หรือ 3 กลุ่ม
+            // เพราะบางไฟล์มี Batch 2 กลุ่ม บางไฟล์มี 3 กลุ่ม หรือมากกว่านั้น) ให้รวมเป็นชุดเดียวกัน
+            // โดยเลือกค่าที่มีข้อมูลจริงในแต่ละแถวให้อัตโนมัติ ไม่ต้องตั้งค่าเอง
+            function buildPrintFields(headers) {
+                // ฟิลด์ที่ไฟล์อาจมีซ้ำหลายกลุ่มได้ (Batch No./Batch/วันหมดอายุ ของกลุ่ม 1/2/3/...)
+                // จับกลุ่มด้วย "หมวดหมู่ของคำ" (classifyHeaderGroup) โดยตรง ไม่ใช้การเทียบชื่อคอลัมน์ให้ตรงกันเป๊ะแบบเดิม
+                // เพื่อรองรับไฟล์ที่ตั้งชื่อคอลัมน์กลุ่ม 2/3 ต่างรูปแบบกัน เช่น "Batch (3)", "Batch No.3", "Batch 3" ไม่มีวงเล็บ
+                // ทุกคอลัมน์ที่ถูกจัดว่าเป็น Batch No./Batch/วันหมดอายุ จะถูกเก็บไว้ตามลำดับซ้าย->ขวาที่เจอในไฟล์ทั้งหมด
+                const REPEATABLE_CATEGORIES = ['batchno', 'batch', 'exp'];
+                const repeatableIndices = { batchno: [], batch: [], exp: [] };
+                const repeatableLabel = {};
+
+                const usedCategories = new Set();
+                const fields = [];
+
+                headers.forEach((header, index) => {
+                    const text = header !== undefined && header !== null ? header.toString().trim() : '';
+                    if (text === '') return;
+                    const normalized = normalizeHeaderForGrouping(text);
+                    if (normalized === '') return;
+                    const info = classifyHeaderGroup(normalized);
+                    if (!info) return;
+
+                    if (REPEATABLE_CATEGORIES.includes(info.category)) {
+                        repeatableIndices[info.category].push(index);
+                        if (repeatableLabel[info.category] === undefined) repeatableLabel[info.category] = normalized;
+                        return;
+                    }
+
+                    // ฟิลด์ที่ไม่ซ้ำกลุ่ม (ชื่อ/ตัวย่อ/รหัส/HU/ฯลฯ) เก็บแค่คอลัมน์แรกที่เจอเหมือนเดิม
+                    if (usedCategories.has(info.category)) return;
+                    usedCategories.add(info.category);
+                    fields.push({
+                        category: info.category,
+                        order: info.order,
+                        fontSize: info.fontSize,
+                        required: info.required,
+                        prefix: info.prefix,
+                        label: normalized,
+                        type: 'single',
+                        index: index,
+                        indices: null
+                    });
+                });
+
+                // รวมฟิลด์ที่ซ้ำกลุ่มได้ (Batch No./Batch/วันหมดอายุ) เป็น field เดียวต่อหมวด แบบ 'combined'
+                // เก็บทุกกลุ่มที่เจอในไฟล์จริง (2 กลุ่ม/3 กลุ่ม/มากกว่านั้นก็ได้) ตามลำดับคอลัมน์ในไฟล์
+                REPEATABLE_CATEGORIES.forEach((category) => {
+                    const idxs = repeatableIndices[category];
+                    if (idxs.length === 0) return;
+                    const info = classifyHeaderGroup(repeatableLabel[category]);
+                    if (!info) return;
+                    fields.push({
+                        category: info.category,
+                        order: info.order,
+                        fontSize: info.fontSize,
+                        required: info.required,
+                        prefix: info.prefix,
+                        label: repeatableLabel[category],
+                        type: idxs.length > 1 ? 'combined' : 'single',
+                        index: idxs.length === 1 ? idxs[0] : null,
+                        indices: idxs.length > 1 ? idxs : null
+                    });
+                });
+
+                fields.sort((a, b) => a.order - b.order);
+
+                // เก็บดัชนีคอลัมน์ที่จัดหมวดหมู่ได้ทั้งหมด (รวมชื่อ/Batch/Lot ที่ไม่โชว์บนสติกเกอร์ด้วย)
+                // ไว้เช็คว่าแถวไหนเป็น "ข้อมูลจริง" ไม่ใช่แถวหัวตารางย่อยที่หลงเหลือมา (เช่น "สมบูรณ์/ไม่สมบูรณ์")
+                businessColumnIndices = [];
+                fields.forEach(f => {
+                    if (f.type === 'combined') businessColumnIndices.push(...f.indices);
+                    else businessColumnIndices.push(f.index);
+                });
+
+                expColumnIndices = [];
+                fields.forEach(f => {
+                    if (f.category !== 'exp') return;
+                    if (f.type === 'combined') expColumnIndices.push(...f.indices);
+                    else expColumnIndices.push(f.index);
+                });
+
+                // ดัชนีคอลัมน์ Batch No. เรียงลำดับกลุ่มเดียวกับ expColumnIndices (กลุ่ม 1/2/3 ตรงตำแหน่งเดียวกัน)
+                // ใช้ต่อท้าย Batch No. ให้ตรงกับ Batch ที่ถูกเลือกแสดงวันหมดอายุ ไม่ใช่ Batch No. กลุ่มแรกที่เจอเฉยๆ
+                batchNoColumnIndices = [];
+                fields.forEach(f => {
+                    if (f.category !== 'batchno') return;
+                    if (f.type === 'combined') batchNoColumnIndices.push(...f.indices);
+                    else batchNoColumnIndices.push(f.index);
+                });
+
+                // ดัชนีคอลัมน์ Batch ตัวเต็ม (LOT) เรียงลำดับกลุ่มเดียวกับ expColumnIndices เช่นเดียวกับ batchNoColumnIndices ด้านบน
+                batchColumnIndices = [];
+                fields.forEach(f => {
+                    if (f.category !== 'batch') return;
+                    if (f.type === 'combined') batchColumnIndices.push(...f.indices);
+                    else batchColumnIndices.push(f.index);
+                });
+
+                // ดัชนีคอลัมน์ "วันรับเข้า" (คอลัมน์เดี่ยว ไม่แยกกลุ่ม 1/2/3)
+                receivedDateColumnIndex = null;
+                fields.forEach(f => {
+                    if (f.category !== 'receiveddate') return;
+                    receivedDateColumnIndex = f.type === 'combined' ? f.indices[0] : f.index;
+                });
+
+                // เก็บดัชนีคอลัมน์เดี่ยวที่ใช้ประกอบข้อมูลใน QR Code (Mat/HU/น้ำหนักต่อกระสอบ/Total) ไม่เกี่ยวกับกลุ่ม Batch 1/2/3
+                qrFieldIndices = {};
+                fields.forEach(f => {
+                    if (!['code', 'hu', 'weightperbag', 'totalkg'].includes(f.category)) return;
+                    qrFieldIndices[f.category] = f.type === 'combined' ? f.indices[0] : f.index;
+                });
+
+                // สติกเกอร์แสดงบรรทัดข้อความ: รหัสส่วนผสม (Mat), ตัวย่อ (Mat.Name), Batch ตัวเต็ม, วันรับเข้า+Batch No., EXP วันหมดอายุ
+                const allowedOnSticker = ['code', 'abbr', 'batch', 'receiveddate', 'exp'];
+                let finalFields = fields.filter(f => allowedOnSticker.includes(f.category));
+
+                // Fallback: ถ้าจับหมวดหมู่ที่ต้องการ (รหัส/ตัวย่อ/วันหมดอายุ) ไม่ได้เลยสักฟิลด์ ใช้ 3 คอลัมน์แรกที่มีชื่อเป็นค่าเริ่มต้น กันสติกเกอร์ว่างเปล่า
+                if (finalFields.length === 0) {
+                    const fallbackSizes = [32, 26, 20];
+                    let count = 0;
+                    for (let i = 0; i < headers.length && count < 3; i++) {
+                        const text = headers[i] !== undefined && headers[i] !== null ? headers[i].toString().trim() : '';
+                        if (text === '') continue;
+                        finalFields.push({ category: 'fallback', order: count + 1, fontSize: fallbackSizes[count], required: false, prefix: '', label: text, type: 'single', index: i, indices: null });
+                        businessColumnIndices.push(i);
+                        count++;
+                    }
+                }
+
+                return finalFields;
+            }
+
+            // หา "ตัวเลือก Batch" ให้เลือกจาก Dropdown ของแถวนี้ — เช็คทีละแถวว่ากลุ่มไหน (01/02/03) "มีข้อมูลใช้งานจริงของแถวนั้น" บ้าง
+            // เช็คจากทั้ง Batch No./Batch ตัวเต็ม/วันหมดอายุ ของกลุ่มนั้น (ไม่ใช่แค่ Batch No. อย่างเดียว) กันเคสลืมกรอก Batch No.
+            // หา "ตัวเลือก Batch" ให้เลือกจาก Dropdown ของแถวนี้ — แสดง "ทุกกลุ่ม Batch ที่ไฟล์นี้มีใช้งานจริง" เสมอทุกแถว (เช่น 01/02)
+            // นับจากทั้งไฟล์ (ไม่ใช่แค่แถวนี้) ว่ากลุ่มไหนเคยมีข้อมูลบ้าง (เช็คทั้ง Batch No./Batch ตัวเต็ม/วันหมดอายุ ไม่ใช่แค่ Batch No. อย่างเดียว)
+            // เพื่อให้ทุกแถวเลือกได้ทั้ง 01/02 อย่างอิสระไม่ล็อกตามข้อมูลของแถวนั้น แต่กลุ่มที่ไฟล์นี้ไม่เคยมีข้อมูลเลย (เช่น 03) จะไม่โผล่มาให้เลือก
+            // ส่วนกรณีเลือกกลุ่มที่แถวนั้นไม่มีข้อมูลจริง ระบบจะจัดการตอนพิมพ์ให้อัตโนมัติ (ดูฟังก์ชัน printStickerRows) ไม่ทำให้พิมพ์ไม่ออก
+            function getBatchOptionsForRow(row) {
+                const hasVal = (v) => v !== undefined && v !== null && v.toString().trim() !== '';
+                const options = [];
+                activeBatchPositions.forEach(pos => {
+                    // ใช้ค่าจากคอลัมน์ "Batch (1)/(2)/(3)" ของแถวนี้เป็นหลัก (ตรงกับคอลัมน์ที่ผู้ใช้เห็นในตาราง)
+                    const fullVal = batchColumnIndices[pos] !== undefined ? row[batchColumnIndices[pos]] : undefined;
+                    const noVal = batchNoColumnIndices[pos] !== undefined ? row[batchNoColumnIndices[pos]] : undefined;
+                    // ถ้าแถวนี้ไม่มีข้อมูลกลุ่มนี้เลยจริงๆ (ทั้ง Batch ตัวเต็มและ Batch No. ว่างทั้งคู่) ให้ตัดตัวเลือกนี้ทิ้งไปเลย ไม่ต้องแสดง
+                    if (!hasVal(fullVal) && !hasVal(noVal)) return;
+                    const label = hasVal(fullVal) ? fullVal.toString().trim() : noVal.toString().trim();
+                    options.push({ position: pos, label });
+                });
+                return options;
+            }
+
+            // สแกนทั้งไฟล์ (ทุกแถวข้อมูล) หาว่า "กลุ่ม Batch" ตำแหน่งไหนบ้าง (0=กลุ่ม 1 "01", 1=กลุ่ม 2 "02", 2=กลุ่ม 3 "03")
+            // มีข้อมูลใช้งานจริงอยู่บ้างอย่างน้อย 1 แถวในไฟล์นี้ (เช็คทั้ง Batch No./Batch ตัวเต็ม/วันหมดอายุของกลุ่มนั้น)
+            function computeActiveBatchPositions(data, headerRowIdx) {
+                const groupCount = Math.max(batchNoColumnIndices.length, batchColumnIndices.length, expColumnIndices.length);
+                const hasVal = (v) => v !== undefined && v !== null && v.toString().trim() !== '';
+                const active = new Set();
+                for (let r = headerRowIdx + 1; r < data.length; r++) {
+                    const row = data[r];
+                    if (!row) continue;
+                    for (let pos = 0; pos < groupCount; pos++) {
+                        if (active.has(pos)) continue;
+                        if (hasVal(row[batchNoColumnIndices[pos]]) || hasVal(row[batchColumnIndices[pos]]) || hasVal(row[expColumnIndices[pos]])) {
+                            active.add(pos);
+                        }
+                    }
+                }
+                return Array.from(active).sort((a, b) => a - b);
+            }
+
+            // หา "ตัวเลือก HU" ของแถวนี้ (บางแถวช่อง HU มีมากกว่า 1 ค่า คั่นด้วย "/" เช่น "208889537/20889356"
+            // คั่นด้วย "-" เช่น "208800306-208800316-208800326" หรือคั่นด้วย "+" เช่น "208800306+208800316") ไว้ทำ Dropdown ให้เลือกเอง
+            function getHuOptionsForRow(row) {
+                const val = qrFieldIndices.hu !== undefined ? row[qrFieldIndices.hu] : '';
+                if (val === undefined || val === null || val.toString().trim() === '') return [];
+                return val.toString().split(/[/\-+]/).map(s => s.trim()).filter(s => s !== '');
+            }
+
+            // สลับโหมด ข้าม/รวม แถวที่ถูกซ่อนไว้ -> รีเฟรชตารางแสดงผลใหม่ทันที
+            skipHiddenRowsCheckbox.addEventListener('change', () => {
+                renderTable();
+            });
+
+            // --- คืนรายการแถวที่ "กำลังแสดงอยู่จริง" ในตาราง (ตัดแถวว่างเปล่า และตัดแถวซ่อนตามตัวเลือกปัจจุบัน) ---
+            // ใช้ร่วมกันทั้ง renderTable, ปุ่มเลือกทั้งหมด และตอนพิมพ์ เพื่อไม่ให้ตรรกะกรองแถวเพี้ยนไปคนละที่
+            function getVisibleRowEntries() {
+                if (!globalExcelData) return [];
+                let rowEntries = globalExcelData.slice(headerRowIndex + 1)
+                    .map((row, i) => ({ row, originalIndex: headerRowIndex + 1 + i }))
+                    .filter(entry => entry.row && !entry.row.every(cell => cell === "" || cell === null || cell === undefined));
+
+                // ตัดแถว "หัวตารางย่อย" ที่หลงเหลือมา (เช่นแถวที่มีแค่คำว่า "สมบูรณ์"/"ไม่สมบูรณ์" ซึ่งเป็นหัวข้อย่อยของคอลัมน์สภาพกระสอบ
+                // ไม่ใช่ข้อมูลสินค้าจริง) โดยเช็คว่าแถวนี้ไม่มีค่าอยู่เลยในทุกคอลัมน์ที่จัดหมวดหมู่เป็นข้อมูลสินค้า (ชื่อ/รหัส/ตัวย่อ/Batch/EXP)
+                if (businessColumnIndices.length > 0) {
+                    rowEntries = rowEntries.filter(entry => {
+                        return businessColumnIndices.some(idx => {
+                            const v = entry.row[idx];
+                            return v !== undefined && v !== null && v.toString().trim() !== '';
+                        });
+                    });
+                }
+
+                // แสดงเฉพาะแถวที่มีวันหมดอายุจริง "และยังไม่หมดอายุ" อย่างน้อย 1 Batch
+                // แถวที่ไม่มีวันหมดอายุเลย หรือ Batch ทุกชุด (Batch1/2/3) หมดอายุไปหมดแล้ว จะถูกซ่อนไปจากตารางและการพิมพ์
+                if (expColumnIndices.length > 0) {
+                    rowEntries = rowEntries.filter(entry => {
+                        return getFirstValidExpValue(entry.row, expColumnIndices) !== null;
+                    });
+                }
+
+                if (skipHiddenRowsCheckbox.checked && globalHiddenRows.size > 0) {
+                    rowEntries = rowEntries.filter(entry => !globalHiddenRows.has(entry.originalIndex));
+                }
+                return rowEntries;
+            }
+
+            // ปุ่ม "เลือกทุกแถวที่แสดงอยู่"
+            btnSelectAll.addEventListener('click', () => {
+                getVisibleRowEntries().forEach(entry => selectedPrintRows.add(entry.originalIndex));
+                renderTable();
+            });
+
+            // ปุ่ม "ล้างการเลือก"
+            btnSelectNone.addEventListener('click', () => {
+                selectedPrintRows.clear();
+                renderTable();
+            });
+
+            function renderTable() {
+                tableHead.innerHTML = '';
+                tableBody.innerHTML = '';
+
+                if (!globalExcelData || globalExcelData.length === 0) {
+                    emptyState.classList.remove('hidden');
+                    rowCount.textContent = '0 รายการ';
+                    return;
+                }
+
+                emptyState.classList.add('hidden');
+
+                const rowEntries = getVisibleRowEntries();
+                rowCount.textContent = `พบข้อมูล ${rowEntries.length} รายการ (เลือกพิมพ์ ${selectedPrintRows.size} แถว)`;
+
+                // หาคอลัมน์ที่ "ไม่มีข้อมูลเลยสักแถว" (เช่น Batch (3) ที่มีหัวตารางในไฟล์ Excel แต่ยังไม่เคยมีการกรอกข้อมูลจริง)
+                // เพื่อซ่อนคอลัมน์เหล่านี้ออกจากตาราง ทำให้ตารางดูสะอาดขึ้น โดยไม่ได้ลบข้อมูลออกจากไฟล์ต้นฉบับแต่อย่างใด
+                // หากภายหลังมีการกรอกข้อมูลลงคอลัมน์นี้ ระบบจะแสดงคอลัมน์นี้กลับมาให้อัตโนมัติ
+                const emptyColumnIndices = new Set();
+                headers.forEach((_, colIdx) => {
+                    const hasAnyValue = rowEntries.some(entry => {
+                        const v = entry.row[colIdx];
+                        return v !== undefined && v !== null && v.toString().trim() !== '';
+                    });
+                    if (!hasAnyValue) emptyColumnIndices.add(colIdx);
+                });
+                const visibleHeaderIndices = headers.map((_, i) => i).filter(i => !emptyColumnIndices.has(i));
+
+                // สร้าง Thead
+                const trHead = document.createElement('tr');
+
+                const thCheck = document.createElement('th');
+                thCheck.className = 'px-4 py-3 text-left bg-gray-50';
+                thCheck.innerHTML = `<input type="checkbox" id="select-all-rows-checkbox" class="rounded border-gray-300 text-corporate-600 focus:ring-corporate-500 focus:ring-offset-0" title="เลือก/ยกเลิกเลือกทุกแถวที่แสดงอยู่">`;
+                trHead.appendChild(thCheck);
+
+                const thNo = document.createElement('th');
+                thNo.className = 'px-2 py-3 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider bg-gray-50';
+                thNo.textContent = '#';
+                trHead.appendChild(thNo);
+
+                const thQty = document.createElement('th');
+                thQty.className = 'px-2 py-3 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider bg-gray-50 whitespace-nowrap';
+                thQty.textContent = 'จำนวน (ใบ)';
+                trHead.appendChild(thQty);
+
+                const thAction = document.createElement('th');
+                thAction.className = 'px-2 py-3 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider bg-gray-50 whitespace-nowrap';
+                thAction.textContent = 'พิมพ์';
+                trHead.appendChild(thAction);
+
+                const thBatchSel = document.createElement('th');
+                thBatchSel.className = 'px-2 py-3 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider bg-gray-50 whitespace-nowrap';
+                thBatchSel.textContent = 'Batch';
+                trHead.appendChild(thBatchSel);
+
+                const thHuSel = document.createElement('th');
+                thHuSel.className = 'px-2 py-3 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider bg-gray-50 whitespace-nowrap';
+                thHuSel.textContent = 'HU';
+                trHead.appendChild(thHuSel);
+
+                const thSubSel = document.createElement('th');
+                thSubSel.className = 'px-2 py-3 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider bg-gray-50 whitespace-nowrap';
+                thSubSel.textContent = 'Batch/EXP';
+                trHead.appendChild(thSubSel);
+
+                visibleHeaderIndices.forEach(colIdx => {
+                    const th = document.createElement('th');
+                    th.className = 'px-3 py-3 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider bg-gray-50 whitespace-nowrap';
+                    th.textContent = headers[colIdx] || '-';
+                    trHead.appendChild(th);
+                });
+                tableHead.appendChild(trHead);
+
+                const selectAllCheckbox = document.getElementById('select-all-rows-checkbox');
+
+                if (rowEntries.length === 0) {
+                    const tr = document.createElement('tr');
+                    const td = document.createElement('td');
+                    td.colSpan = visibleHeaderIndices.length + 7;
+                    td.className = 'px-6 py-8 text-center text-gray-500';
+                    td.textContent = 'ไม่มีข้อมูลในแถวถัดไป';
+                    tr.appendChild(td);
+                    tableBody.appendChild(tr);
+                    selectAllCheckbox.disabled = true;
+                    return;
+                }
+
+                selectAllCheckbox.checked = rowEntries.every(entry => selectedPrintRows.has(entry.originalIndex));
+                selectAllCheckbox.addEventListener('change', () => {
+                    if (selectAllCheckbox.checked) {
+                        rowEntries.forEach(entry => selectedPrintRows.add(entry.originalIndex));
+                    } else {
+                        rowEntries.forEach(entry => selectedPrintRows.delete(entry.originalIndex));
+                    }
+                    renderTable();
+                });
+
+                rowEntries.forEach((entry, index) => {
+                    const row = entry.row;
+                    const tr = document.createElement('tr');
+                    tr.className = `transition duration-100 ${index % 2 === 1 ? 'bg-gray-50/60' : 'bg-white'} hover:bg-corporate-50/60`;
+
+                    const tdCheck = document.createElement('td');
+                    tdCheck.className = 'px-4 py-2.5 whitespace-nowrap';
+                    const cb = document.createElement('input');
+                    cb.type = 'checkbox';
+                    cb.className = 'row-select-checkbox rounded border-gray-300 text-corporate-600 focus:ring-corporate-500 focus:ring-offset-0';
+                    cb.checked = selectedPrintRows.has(entry.originalIndex);
+                    cb.addEventListener('change', () => {
+                        if (cb.checked) {
+                            selectedPrintRows.add(entry.originalIndex);
+                        } else {
+                            selectedPrintRows.delete(entry.originalIndex);
+                        }
+                        rowCount.textContent = `พบข้อมูล ${rowEntries.length} รายการ (เลือกพิมพ์ ${selectedPrintRows.size} แถว)`;
+                        selectAllCheckbox.checked = rowEntries.every(en => selectedPrintRows.has(en.originalIndex));
+                    });
+                    tdCheck.appendChild(cb);
+                    tr.appendChild(tdCheck);
+
+                    const tdNo = document.createElement('td');
+                    tdNo.className = 'px-2 py-2.5 whitespace-nowrap text-sm font-medium text-gray-400';
+                    tdNo.textContent = index + 1;
+                    tr.appendChild(tdNo);
+
+                    const tdQty = document.createElement('td');
+                    tdQty.className = 'px-2 py-2.5 whitespace-nowrap';
+                    const qtyInput = document.createElement('input');
+                    qtyInput.type = 'number';
+                    qtyInput.min = '1';
+                    qtyInput.value = printQuantities.get(entry.originalIndex) || 1;
+                    qtyInput.className = 'w-14 border border-gray-200 bg-white rounded-lg px-1.5 py-1 text-sm text-center focus:ring-2 focus:ring-corporate-500/40 focus:border-corporate-400 outline-none';
+                    qtyInput.title = 'จำนวนใบที่ต้องการพิมพ์สำหรับแถวนี้ (1 แผ่น = 1 ใบ)';
+                    qtyInput.addEventListener('change', () => {
+                        let v = parseInt(qtyInput.value, 10);
+                        if (!v || v < 1) v = 1;
+                        qtyInput.value = v;
+                        printQuantities.set(entry.originalIndex, v);
+                    });
+                    tdQty.appendChild(qtyInput);
+                    tr.appendChild(tdQty);
+
+                    const tdAction = document.createElement('td');
+                    tdAction.className = 'px-2 py-2.5 whitespace-nowrap';
+                    const btnRowPrint = document.createElement('button');
+                    btnRowPrint.type = 'button';
+                    btnRowPrint.className = 'bg-white border border-gray-200 hover:bg-corporate-600 hover:border-corporate-600 text-corporate-600 hover:text-white w-8 h-8 rounded-lg transition flex items-center justify-center';
+                    btnRowPrint.title = 'พิมพ์สติกเกอร์เฉพาะแถวนี้';
+                    btnRowPrint.innerHTML = '<i class="ph-fill ph-printer text-base"></i>';
+                    btnRowPrint.addEventListener('click', () => {
+                        const qty = printQuantities.get(entry.originalIndex) || 1;
+                        const huVal = selectedHu.has(entry.originalIndex) ? selectedHu.get(entry.originalIndex) : null;
+                        const labelPos = selectedBatchPosition.has(entry.originalIndex) ? selectedBatchPosition.get(entry.originalIndex) : null;
+                        const allCombos = getAllBatchExpOptionsForRow(entry.row);
+                        const chosenKeys = getEffectiveSelectedKeys(entry.originalIndex, entry.row, allCombos);
+                        const chosenCombos = allCombos.filter(o => chosenKeys.includes(o.key));
+                        // ไม่มี Batch/EXP ให้เลือกเลย (แถวไม่มีข้อมูล Batch เลย) -> พิมพ์แบบเดิม ไม่ระบุ position/subIndex
+                        const items = chosenCombos.length > 0 ? chosenCombos : [null];
+                        // แต่ละ Batch/EXP ที่เลือกไว้ พิมพ์แยกสติกเกอร์คนละใบ คูณด้วยจำนวนใบ (qty) ที่ตั้งไว้ของแถวนี้
+                        const dataRows = items.flatMap(combo => Array(qty).fill({
+                            row: entry.row,
+                            batchPosition: combo ? combo.position : null,
+                            subIndex: combo ? combo.subIndex : null,
+                            labelPosition: labelPos,
+                            huValue: huVal
+                        }));
+                        printStickerRows(dataRows);
+                    });
+                    tdAction.appendChild(btnRowPrint);
+                    tr.appendChild(tdAction);
+
+                    // Dropdown เลือก Batch เอง (กรณีแถวนี้มีหลาย Batch ที่มีข้อมูล เช่น 01/02) — เป็นแค่เลข Label ต่อท้ายบรรทัดวันหมดอายุ (EXP) บนสติกเกอร์
+                    // ไม่กระทบข้อมูลจริง (Batch ตัวเต็ม/วันหมดอายุ) ซึ่งยึดตามที่เลือกไว้ในช่อง Dropdown "Batch/EXP" เสมอ
+                    const tdBatchSel = document.createElement('td');
+                    tdBatchSel.className = 'px-2 py-2.5 whitespace-nowrap';
+                    const batchOptions = getBatchOptionsForRow(row);
+                    if (batchOptions.length > 0) {
+                        const batchSelect = document.createElement('select');
+                        batchSelect.className = 'border border-gray-200 bg-white rounded-lg px-1.5 py-1 text-sm focus:ring-2 focus:ring-corporate-500/40 focus:border-corporate-400 outline-none';
+                        batchSelect.title = 'เลือกเลขกลุ่ม Batch (01/02) ที่จะต่อท้ายบรรทัดวันหมดอายุ (EXP) บนสติกเกอร์ — ปรับเองได้อิสระ เป็นแค่ Label ไม่กระทบวันหมดอายุ/Batch ตัวเต็มที่แสดง/พิมพ์จริง (ดูช่อง Batch/EXP)';
+                        const autoEntry = expColumnIndices.length > 0 ? getFirstValidExpEntry(row, expColumnIndices) : null;
+                        const defaultPos = selectedBatchPosition.has(entry.originalIndex)
+                            ? selectedBatchPosition.get(entry.originalIndex)
+                            : (autoEntry !== null ? autoEntry.position : batchOptions[0].position);
+                        batchOptions.forEach(opt => {
+                            const optionEl = document.createElement('option');
+                            optionEl.value = opt.position;
+                            optionEl.textContent = opt.label;
+                            if (opt.position === defaultPos) optionEl.selected = true;
+                            batchSelect.appendChild(optionEl);
+                        });
+
+                        batchSelect.addEventListener('change', () => {
+                            selectedBatchPosition.set(entry.originalIndex, parseInt(batchSelect.value, 10));
+                        });
+
+                        tdBatchSel.appendChild(batchSelect);
+                    } else {
+                        tdBatchSel.innerHTML = '<span class="text-gray-300">-</span>';
+                    }
+                    tr.appendChild(tdBatchSel);
+
+                    // Dropdown เลือก HU เอง (กรณีช่อง HU ของแถวนี้มีหลายค่าคั่นด้วย "/") — ค่าเริ่มต้นคือค่าแรก
+                    const tdHuSel = document.createElement('td');
+                    tdHuSel.className = 'px-2 py-2.5 whitespace-nowrap';
+                    const huOptions = getHuOptionsForRow(row);
+                    if (huOptions.length > 0) {
+                        const huSelect = document.createElement('select');
+                        huSelect.className = 'border border-gray-200 bg-white rounded-lg px-1.5 py-1 text-sm focus:ring-2 focus:ring-corporate-500/40 focus:border-corporate-400 outline-none';
+                        const defaultHu = selectedHu.has(entry.originalIndex) ? selectedHu.get(entry.originalIndex) : huOptions[0];
+                        huOptions.forEach(val => {
+                            const optionEl = document.createElement('option');
+                            optionEl.value = val;
+                            optionEl.textContent = val;
+                            if (val === defaultHu) optionEl.selected = true;
+                            huSelect.appendChild(optionEl);
+                        });
+                        huSelect.addEventListener('change', () => {
+                            selectedHu.set(entry.originalIndex, huSelect.value);
+                        });
+                        tdHuSel.appendChild(huSelect);
+                    } else {
+                        tdHuSel.innerHTML = '<span class="text-gray-300">-</span>';
+                    }
+                    tr.appendChild(tdHuSel);
+
+                    // Dropdown (แบบเลือกได้หลายอัน) รวม Batch/วันหมดอายุ ของทุกกลุ่ม (01/02/03) และทุกค่าย่อยในเซลล์เดียวกัน
+                    // (เช่น กลุ่ม 01 มี "LOT9CTNN11/DUR8FSNN11" คู่กับ "13/1/2028,28/4/2027" และกลุ่ม 02 มีอีกชุดหนึ่ง) ไว้ในรายการเดียว
+                    // เป็น Dropdown จริง (ปิดอยู่ตามปกติ กดแล้วค่อยกางออกมา) ข้างในติ๊กเลือกได้มากกว่า 1 รายการด้วย Checkbox
+                    const tdSubSel = document.createElement('td');
+                    tdSubSel.className = 'px-2 py-2.5 whitespace-nowrap relative';
+                    const allBatchExpOptions = getAllBatchExpOptionsForRow(row);
+                    if (allBatchExpOptions.length > 1) {
+                        const wrap = document.createElement('div');
+                        wrap.className = 'relative inline-block batch-exp-dropdown-wrap';
+
+                        const toggleBtn = document.createElement('button');
+                        toggleBtn.type = 'button';
+                        toggleBtn.className = 'border border-gray-200 bg-white rounded-lg px-2 py-1 text-xs text-left focus:ring-2 focus:ring-corporate-500/40 focus:border-corporate-400 outline-none max-w-[200px] truncate flex items-center gap-1';
+                        toggleBtn.title = 'แถวนี้มีหลาย Batch/วันหมดอายุ — กดเพื่อเลือกรายการที่ต้องการแสดงบนสติกเกอร์ (เลือกได้ทีละ 1 รายการ)';
+
+                        const panel = document.createElement('div');
+                        panel.className = 'hidden absolute z-20 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 max-h-52 overflow-y-auto min-w-[220px]';
+
+                        const renderToggleLabel = () => {
+                            const keys = selectedSubOption.has(entry.originalIndex)
+                                ? selectedSubOption.get(entry.originalIndex)
+                                : getEffectiveSelectedKeys(entry.originalIndex, row, allBatchExpOptions);
+                            const chosenOpt = allBatchExpOptions.find(o => keys.includes(o.key));
+                            const text = chosenOpt ? chosenOpt.label : 'เลือก Batch/EXP';
+                            toggleBtn.innerHTML = '';
+                            const span = document.createElement('span');
+                            span.className = 'truncate';
+                            span.textContent = text;
+                            toggleBtn.appendChild(span);
+                            const caret = document.createElement('i');
+                            caret.className = 'ph-fill ph-caret-down text-[10px] flex-shrink-0';
+                            toggleBtn.appendChild(caret);
+                        };
+
+                        const effectiveKeysInit = getEffectiveSelectedKeys(entry.originalIndex, row, allBatchExpOptions);
+                        const radioName = `batch-exp-${entry.originalIndex}`;
+                        allBatchExpOptions.forEach(opt => {
+                            const optRow = document.createElement('label');
+                            optRow.className = 'flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-gray-50 cursor-pointer whitespace-nowrap';
+                            const cb = document.createElement('input');
+                            cb.type = 'radio';
+                            cb.name = radioName;
+                            cb.className = 'border-gray-300 text-corporate-600 focus:ring-corporate-500 focus:ring-offset-0';
+                            cb.checked = effectiveKeysInit.includes(opt.key);
+                            cb.addEventListener('change', () => {
+                                selectedSubOption.set(entry.originalIndex, [opt.key]);
+                                renderToggleLabel();
+                                panel.classList.add('hidden');
+                                panel.classList.remove('batch-exp-dropdown-panel-open');
+                            });
+                            const textSpan = document.createElement('span');
+                            textSpan.textContent = opt.label;
+                            optRow.appendChild(cb);
+                            optRow.appendChild(textSpan);
+                            panel.appendChild(optRow);
+                        });
+
+                        toggleBtn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            document.querySelectorAll('.batch-exp-dropdown-panel-open').forEach(p => {
+                                if (p !== panel) p.classList.add('hidden');
+                            });
+                            panel.classList.toggle('hidden');
+                            panel.classList.toggle('batch-exp-dropdown-panel-open', !panel.classList.contains('hidden'));
+                        });
+
+                        renderToggleLabel();
+                        wrap.appendChild(toggleBtn);
+                        wrap.appendChild(panel);
+                        tdSubSel.appendChild(wrap);
+                    } else if (allBatchExpOptions.length === 1) {
+                        const labelSpan = document.createElement('span');
+                        labelSpan.className = 'text-xs text-gray-500';
+                        labelSpan.textContent = allBatchExpOptions[0].label;
+                        tdSubSel.appendChild(labelSpan);
+                    } else {
+                        tdSubSel.innerHTML = '<span class="text-gray-300">-</span>';
+                    }
+                    tr.appendChild(tdSubSel);
+
+                    visibleHeaderIndices.forEach(i => {
+                        const td = document.createElement('td');
+                        td.className = 'px-3 py-2.5 whitespace-nowrap text-sm text-gray-700';
+
+                        let cellValue = row[i];
+                        if (cellValue === undefined || cellValue === null || cellValue === "") {
+                            td.innerHTML = '<span class="text-gray-300">-</span>';
+                        } else {
+                            if (typeof cellValue === 'number' && !Number.isInteger(cellValue)) {
+                                td.textContent = cellValue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                            } else {
+                                td.textContent = cellValue;
+                            }
+                        }
+                        tr.appendChild(td);
+                    });
+                    tableBody.appendChild(tr);
+                });
+            }
+
+            // --- ฟังก์ชันกลางสำหรับพิมพ์สติกเกอร์: รับอาร์เรย์ของแถวข้อมูล (rows) แล้วสร้างหน้าต่างสั่งพิมพ์ ---
+            // ใช้ร่วมกันทั้งปุ่ม "พิมพ์แถวที่เลือก" (หลายแถว) และปุ่มพิมพ์รายแถว (แถวเดียว)
+            function printStickerRows(dataRows) {
+                // เลือกรูปแบบการจัดหน้าตามที่ผู้ใช้เลือกไว้จากปุ่มสลับด้านบนตาราง: 'single' = 1 ใบ/แผ่น (แนวตั้ง), 'pair' = 2 ใบ/แผ่น (วางคู่ซ้าย-ขวา)
+                const isPairLayout = printLayoutMode === 'pair';
+                // ขนาดฟอนต์เดียวที่ใช้กับทุกบรรทัด/ทุกฟิลด์บนสติกเกอร์ (ให้ขนาดและความเข้มเท่ากันหมด ไม่มีบรรทัดไหนเด่นเป็นพิเศษ)
+                // แยกขนาดกันคนละชุดระหว่าง 2 รูปแบบ เพราะพื้นที่ต่อใบไม่เท่ากัน (แบบคู่มีพื้นที่ต่อใบเล็กกว่าแบบเดี่ยวครึ่งหนึ่ง)
+                const STICKER_FONT_SIZE = isPairLayout ? 14 : 20;
+                // ขนาด QR Code บนสติกเกอร์ (พิกเซล) ถ้า QR ล้นกรอบหรืออยากได้ใหญ่/เล็กลง ปรับตัวเลขนี้ตัวเดียว (แยกกันคนละชุดตามรูปแบบเช่นกัน)
+                const STICKER_QR_SIZE_PX = isPairLayout ? 74 : 100;
+
+                if (printFields.length === 0) {
+                    showCustomModal('ไม่พบคอลัมน์ที่ใช้พิมพ์ได้', 'ไม่สามารถระบุคอลัมน์ที่เหมาะสมสำหรับพิมพ์บนสติกเกอร์จากไฟล์นี้ได้', 'warning');
+                    return;
+                }
+
+                if (dataRows.length === 0) {
+                    showCustomModal('ไม่มีข้อมูลสำหรับพิมพ์', 'แถวที่เลือกไว้ไม่ปรากฏอยู่ในรายการที่แสดงอยู่แล้ว (อาจถูกซ่อน/กรองออกไป) โปรดเลือกแถวใหม่', 'warning');
+                    return;
+                }
+
+                // สร้างเอกสาร HTML หน้าใหม่สำหรับส่งพิมพ์เป็นป้ายคู่ 2 แถวแบบสติกเกอร์ติดกระสอบ
+                let printHTML = `
+                    <!DOCTYPE html>
+                    <html lang="th">
+                    <head>
+                        <meta charset="UTF-8">
+                        <title>พิมพ์สติกเกอร์ติดกระสอบ 2 แถว</title>
+                        <script>
+//---------------------------------------------------------------------
+//
+// QR Code Generator for JavaScript
+//
+// Copyright (c) 2009 Kazuhiko Arase
+//
+// URL: http://www.d-project.com/
+//
+// Licensed under the MIT license:
+//  http://www.opensource.org/licenses/mit-license.php
+//
+// The word 'QR Code' is registered trademark of
+// DENSO WAVE INCORPORATED
+//  http://www.denso-wave.com/qrcode/faqpatent-e.html
+//
+//---------------------------------------------------------------------
+
+var qrcode = function() {
+
+  //---------------------------------------------------------------------
+  // qrcode
+  //---------------------------------------------------------------------
+
+  /**
+   * qrcode
+   * @param typeNumber 1 to 40
+   * @param errorCorrectionLevel 'L','M','Q','H'
+   */
+  var qrcode = function(typeNumber, errorCorrectionLevel) {
+
+    var PAD0 = 0xEC;
+    var PAD1 = 0x11;
+
+    var _typeNumber = typeNumber;
+    var _errorCorrectionLevel = QRErrorCorrectionLevel[errorCorrectionLevel];
+    var _modules = null;
+    var _moduleCount = 0;
+    var _dataCache = null;
+    var _dataList = [];
+
+    var _this = {};
+
+    var makeImpl = function(test, maskPattern) {
+
+      _moduleCount = _typeNumber * 4 + 17;
+      _modules = function(moduleCount) {
+        var modules = new Array(moduleCount);
+        for (var row = 0; row < moduleCount; row += 1) {
+          modules[row] = new Array(moduleCount);
+          for (var col = 0; col < moduleCount; col += 1) {
+            modules[row][col] = null;
+          }
+        }
+        return modules;
+      }(_moduleCount);
+
+      setupPositionProbePattern(0, 0);
+      setupPositionProbePattern(_moduleCount - 7, 0);
+      setupPositionProbePattern(0, _moduleCount - 7);
+      setupPositionAdjustPattern();
+      setupTimingPattern();
+      setupTypeInfo(test, maskPattern);
+
+      if (_typeNumber >= 7) {
+        setupTypeNumber(test);
+      }
+
+      if (_dataCache == null) {
+        _dataCache = createData(_typeNumber, _errorCorrectionLevel, _dataList);
+      }
+
+      mapData(_dataCache, maskPattern);
+    };
+
+    var setupPositionProbePattern = function(row, col) {
+
+      for (var r = -1; r <= 7; r += 1) {
+
+        if (row + r <= -1 || _moduleCount <= row + r) continue;
+
+        for (var c = -1; c <= 7; c += 1) {
+
+          if (col + c <= -1 || _moduleCount <= col + c) continue;
+
+          if ( (0 <= r && r <= 6 && (c == 0 || c == 6) )
+              || (0 <= c && c <= 6 && (r == 0 || r == 6) )
+              || (2 <= r && r <= 4 && 2 <= c && c <= 4) ) {
+            _modules[row + r][col + c] = true;
+          } else {
+            _modules[row + r][col + c] = false;
+          }
+        }
+      }
+    };
+
+    var getBestMaskPattern = function() {
+
+      var minLostPoint = 0;
+      var pattern = 0;
+
+      for (var i = 0; i < 8; i += 1) {
+
+        makeImpl(true, i);
+
+        var lostPoint = QRUtil.getLostPoint(_this);
+
+        if (i == 0 || minLostPoint > lostPoint) {
+          minLostPoint = lostPoint;
+          pattern = i;
+        }
+      }
+
+      return pattern;
+    };
+
+    var setupTimingPattern = function() {
+
+      for (var r = 8; r < _moduleCount - 8; r += 1) {
+        if (_modules[r][6] != null) {
+          continue;
+        }
+        _modules[r][6] = (r % 2 == 0);
+      }
+
+      for (var c = 8; c < _moduleCount - 8; c += 1) {
+        if (_modules[6][c] != null) {
+          continue;
+        }
+        _modules[6][c] = (c % 2 == 0);
+      }
+    };
+
+    var setupPositionAdjustPattern = function() {
+
+      var pos = QRUtil.getPatternPosition(_typeNumber);
+
+      for (var i = 0; i < pos.length; i += 1) {
+
+        for (var j = 0; j < pos.length; j += 1) {
+
+          var row = pos[i];
+          var col = pos[j];
+
+          if (_modules[row][col] != null) {
+            continue;
+          }
+
+          for (var r = -2; r <= 2; r += 1) {
+
+            for (var c = -2; c <= 2; c += 1) {
+
+              if (r == -2 || r == 2 || c == -2 || c == 2
+                  || (r == 0 && c == 0) ) {
+                _modules[row + r][col + c] = true;
+              } else {
+                _modules[row + r][col + c] = false;
+              }
+            }
+          }
+        }
+      }
+    };
+
+    var setupTypeNumber = function(test) {
+
+      var bits = QRUtil.getBCHTypeNumber(_typeNumber);
+
+      for (var i = 0; i < 18; i += 1) {
+        var mod = (!test && ( (bits >> i) & 1) == 1);
+        _modules[Math.floor(i / 3)][i % 3 + _moduleCount - 8 - 3] = mod;
+      }
+
+      for (var i = 0; i < 18; i += 1) {
+        var mod = (!test && ( (bits >> i) & 1) == 1);
+        _modules[i % 3 + _moduleCount - 8 - 3][Math.floor(i / 3)] = mod;
+      }
+    };
+
+    var setupTypeInfo = function(test, maskPattern) {
+
+      var data = (_errorCorrectionLevel << 3) | maskPattern;
+      var bits = QRUtil.getBCHTypeInfo(data);
+
+      // vertical
+      for (var i = 0; i < 15; i += 1) {
+
+        var mod = (!test && ( (bits >> i) & 1) == 1);
+
+        if (i < 6) {
+          _modules[i][8] = mod;
+        } else if (i < 8) {
+          _modules[i + 1][8] = mod;
+        } else {
+          _modules[_moduleCount - 15 + i][8] = mod;
+        }
+      }
+
+      // horizontal
+      for (var i = 0; i < 15; i += 1) {
+
+        var mod = (!test && ( (bits >> i) & 1) == 1);
+
+        if (i < 8) {
+          _modules[8][_moduleCount - i - 1] = mod;
+        } else if (i < 9) {
+          _modules[8][15 - i - 1 + 1] = mod;
+        } else {
+          _modules[8][15 - i - 1] = mod;
+        }
+      }
+
+      // fixed module
+      _modules[_moduleCount - 8][8] = (!test);
+    };
+
+    var mapData = function(data, maskPattern) {
+
+      var inc = -1;
+      var row = _moduleCount - 1;
+      var bitIndex = 7;
+      var byteIndex = 0;
+      var maskFunc = QRUtil.getMaskFunction(maskPattern);
+
+      for (var col = _moduleCount - 1; col > 0; col -= 2) {
+
+        if (col == 6) col -= 1;
+
+        while (true) {
+
+          for (var c = 0; c < 2; c += 1) {
+
+            if (_modules[row][col - c] == null) {
+
+              var dark = false;
+
+              if (byteIndex < data.length) {
+                dark = ( ( (data[byteIndex] >>> bitIndex) & 1) == 1);
+              }
+
+              var mask = maskFunc(row, col - c);
+
+              if (mask) {
+                dark = !dark;
+              }
+
+              _modules[row][col - c] = dark;
+              bitIndex -= 1;
+
+              if (bitIndex == -1) {
+                byteIndex += 1;
+                bitIndex = 7;
+              }
+            }
+          }
+
+          row += inc;
+
+          if (row < 0 || _moduleCount <= row) {
+            row -= inc;
+            inc = -inc;
+            break;
+          }
+        }
+      }
+    };
+
+    var createBytes = function(buffer, rsBlocks) {
+
+      var offset = 0;
+
+      var maxDcCount = 0;
+      var maxEcCount = 0;
+
+      var dcdata = new Array(rsBlocks.length);
+      var ecdata = new Array(rsBlocks.length);
+
+      for (var r = 0; r < rsBlocks.length; r += 1) {
+
+        var dcCount = rsBlocks[r].dataCount;
+        var ecCount = rsBlocks[r].totalCount - dcCount;
+
+        maxDcCount = Math.max(maxDcCount, dcCount);
+        maxEcCount = Math.max(maxEcCount, ecCount);
+
+        dcdata[r] = new Array(dcCount);
+
+        for (var i = 0; i < dcdata[r].length; i += 1) {
+          dcdata[r][i] = 0xff & buffer.getBuffer()[i + offset];
+        }
+        offset += dcCount;
+
+        var rsPoly = QRUtil.getErrorCorrectPolynomial(ecCount);
+        var rawPoly = qrPolynomial(dcdata[r], rsPoly.getLength() - 1);
+
+        var modPoly = rawPoly.mod(rsPoly);
+        ecdata[r] = new Array(rsPoly.getLength() - 1);
+        for (var i = 0; i < ecdata[r].length; i += 1) {
+          var modIndex = i + modPoly.getLength() - ecdata[r].length;
+          ecdata[r][i] = (modIndex >= 0)? modPoly.getAt(modIndex) : 0;
+        }
+      }
+
+      var totalCodeCount = 0;
+      for (var i = 0; i < rsBlocks.length; i += 1) {
+        totalCodeCount += rsBlocks[i].totalCount;
+      }
+
+      var data = new Array(totalCodeCount);
+      var index = 0;
+
+      for (var i = 0; i < maxDcCount; i += 1) {
+        for (var r = 0; r < rsBlocks.length; r += 1) {
+          if (i < dcdata[r].length) {
+            data[index] = dcdata[r][i];
+            index += 1;
+          }
+        }
+      }
+
+      for (var i = 0; i < maxEcCount; i += 1) {
+        for (var r = 0; r < rsBlocks.length; r += 1) {
+          if (i < ecdata[r].length) {
+            data[index] = ecdata[r][i];
+            index += 1;
+          }
+        }
+      }
+
+      return data;
+    };
+
+    var createData = function(typeNumber, errorCorrectionLevel, dataList) {
+
+      var rsBlocks = QRRSBlock.getRSBlocks(typeNumber, errorCorrectionLevel);
+
+      var buffer = qrBitBuffer();
+
+      for (var i = 0; i < dataList.length; i += 1) {
+        var data = dataList[i];
+        buffer.put(data.getMode(), 4);
+        buffer.put(data.getLength(), QRUtil.getLengthInBits(data.getMode(), typeNumber) );
+        data.write(buffer);
+      }
+
+      // calc num max data.
+      var totalDataCount = 0;
+      for (var i = 0; i < rsBlocks.length; i += 1) {
+        totalDataCount += rsBlocks[i].dataCount;
+      }
+
+      if (buffer.getLengthInBits() > totalDataCount * 8) {
+        throw 'code length overflow. ('
+          + buffer.getLengthInBits()
+          + '>'
+          + totalDataCount * 8
+          + ')';
+      }
+
+      // end code
+      if (buffer.getLengthInBits() + 4 <= totalDataCount * 8) {
+        buffer.put(0, 4);
+      }
+
+      // padding
+      while (buffer.getLengthInBits() % 8 != 0) {
+        buffer.putBit(false);
+      }
+
+      // padding
+      while (true) {
+
+        if (buffer.getLengthInBits() >= totalDataCount * 8) {
+          break;
+        }
+        buffer.put(PAD0, 8);
+
+        if (buffer.getLengthInBits() >= totalDataCount * 8) {
+          break;
+        }
+        buffer.put(PAD1, 8);
+      }
+
+      return createBytes(buffer, rsBlocks);
+    };
+
+    _this.addData = function(data, mode) {
+
+      mode = mode || 'Byte';
+
+      var newData = null;
+
+      switch(mode) {
+      case 'Numeric' :
+        newData = qrNumber(data);
+        break;
+      case 'Alphanumeric' :
+        newData = qrAlphaNum(data);
+        break;
+      case 'Byte' :
+        newData = qr8BitByte(data);
+        break;
+      case 'Kanji' :
+        newData = qrKanji(data);
+        break;
+      default :
+        throw 'mode:' + mode;
+      }
+
+      _dataList.push(newData);
+      _dataCache = null;
+    };
+
+    _this.isDark = function(row, col) {
+      if (row < 0 || _moduleCount <= row || col < 0 || _moduleCount <= col) {
+        throw row + ',' + col;
+      }
+      return _modules[row][col];
+    };
+
+    _this.getModuleCount = function() {
+      return _moduleCount;
+    };
+
+    _this.make = function() {
+      if (_typeNumber < 1) {
+        var typeNumber = 1;
+
+        for (; typeNumber < 40; typeNumber++) {
+          var rsBlocks = QRRSBlock.getRSBlocks(typeNumber, _errorCorrectionLevel);
+          var buffer = qrBitBuffer();
+
+          for (var i = 0; i < _dataList.length; i++) {
+            var data = _dataList[i];
+            buffer.put(data.getMode(), 4);
+            buffer.put(data.getLength(), QRUtil.getLengthInBits(data.getMode(), typeNumber) );
+            data.write(buffer);
+          }
+
+          var totalDataCount = 0;
+          for (var i = 0; i < rsBlocks.length; i++) {
+            totalDataCount += rsBlocks[i].dataCount;
+          }
+
+          if (buffer.getLengthInBits() <= totalDataCount * 8) {
+            break;
+          }
+        }
+
+        _typeNumber = typeNumber;
+      }
+
+      makeImpl(false, getBestMaskPattern() );
+    };
+
+    _this.createTableTag = function(cellSize, margin) {
+
+      cellSize = cellSize || 2;
+      margin = (typeof margin == 'undefined')? cellSize * 4 : margin;
+
+      var qrHtml = '';
+
+      qrHtml += '<table style="';
+      qrHtml += ' border-width: 0px; border-style: none;';
+      qrHtml += ' border-collapse: collapse;';
+      qrHtml += ' padding: 0px; margin: ' + margin + 'px;';
+      qrHtml += '">';
+      qrHtml += '<tbody>';
+
+      for (var r = 0; r < _this.getModuleCount(); r += 1) {
+
+        qrHtml += '<tr>';
+
+        for (var c = 0; c < _this.getModuleCount(); c += 1) {
+          qrHtml += '<td style="';
+          qrHtml += ' border-width: 0px; border-style: none;';
+          qrHtml += ' border-collapse: collapse;';
+          qrHtml += ' padding: 0px; margin: 0px;';
+          qrHtml += ' width: ' + cellSize + 'px;';
+          qrHtml += ' height: ' + cellSize + 'px;';
+          qrHtml += ' background-color: ';
+          qrHtml += _this.isDark(r, c)? '#000000' : '#ffffff';
+          qrHtml += ';';
+          qrHtml += '"/>';
+        }
+
+        qrHtml += '</tr>';
+      }
+
+      qrHtml += '</tbody>';
+      qrHtml += '</table>';
+
+      return qrHtml;
+    };
+
+    _this.createSvgTag = function(cellSize, margin, alt, title) {
+
+      var opts = {};
+      if (typeof arguments[0] == 'object') {
+        // Called by options.
+        opts = arguments[0];
+        // overwrite cellSize and margin.
+        cellSize = opts.cellSize;
+        margin = opts.margin;
+        alt = opts.alt;
+        title = opts.title;
+      }
+
+      cellSize = cellSize || 2;
+      margin = (typeof margin == 'undefined')? cellSize * 4 : margin;
+
+      // Compose alt property surrogate
+      alt = (typeof alt === 'string') ? {text: alt} : alt || {};
+      alt.text = alt.text || null;
+      alt.id = (alt.text) ? alt.id || 'qrcode-description' : null;
+
+      // Compose title property surrogate
+      title = (typeof title === 'string') ? {text: title} : title || {};
+      title.text = title.text || null;
+      title.id = (title.text) ? title.id || 'qrcode-title' : null;
+
+      var size = _this.getModuleCount() * cellSize + margin * 2;
+      var c, mc, r, mr, qrSvg='', rect;
+
+      rect = 'l' + cellSize + ',0 0,' + cellSize +
+        ' -' + cellSize + ',0 0,-' + cellSize + 'z ';
+
+      qrSvg += '<svg version="1.1" xmlns="http://www.w3.org/2000/svg"';
+      qrSvg += !opts.scalable ? ' width="' + size + 'px" height="' + size + 'px"' : '';
+      qrSvg += ' viewBox="0 0 ' + size + ' ' + size + '" ';
+      qrSvg += ' preserveAspectRatio="xMinYMin meet"';
+      qrSvg += (title.text || alt.text) ? ' role="img" aria-labelledby="' +
+          escapeXml([title.id, alt.id].join(' ').trim() ) + '"' : '';
+      qrSvg += '>';
+      qrSvg += (title.text) ? '<title id="' + escapeXml(title.id) + '">' +
+          escapeXml(title.text) + '</title>' : '';
+      qrSvg += (alt.text) ? '<description id="' + escapeXml(alt.id) + '">' +
+          escapeXml(alt.text) + '</description>' : '';
+      qrSvg += '<rect width="100%" height="100%" fill="white" cx="0" cy="0"/>';
+      qrSvg += '<path d="';
+
+      for (r = 0; r < _this.getModuleCount(); r += 1) {
+        mr = r * cellSize + margin;
+        for (c = 0; c < _this.getModuleCount(); c += 1) {
+          if (_this.isDark(r, c) ) {
+            mc = c*cellSize+margin;
+            qrSvg += 'M' + mc + ',' + mr + rect;
+          }
+        }
+      }
+
+      qrSvg += '" stroke="transparent" fill="black"/>';
+      qrSvg += '</svg>';
+
+      return qrSvg;
+    };
+
+    _this.createDataURL = function(cellSize, margin) {
+
+      cellSize = cellSize || 2;
+      margin = (typeof margin == 'undefined')? cellSize * 4 : margin;
+
+      var size = _this.getModuleCount() * cellSize + margin * 2;
+      var min = margin;
+      var max = size - margin;
+
+      return createDataURL(size, size, function(x, y) {
+        if (min <= x && x < max && min <= y && y < max) {
+          var c = Math.floor( (x - min) / cellSize);
+          var r = Math.floor( (y - min) / cellSize);
+          return _this.isDark(r, c)? 0 : 1;
+        } else {
+          return 1;
+        }
+      } );
+    };
+
+    _this.createImgTag = function(cellSize, margin, alt) {
+
+      cellSize = cellSize || 2;
+      margin = (typeof margin == 'undefined')? cellSize * 4 : margin;
+
+      var size = _this.getModuleCount() * cellSize + margin * 2;
+
+      var img = '';
+      img += '<img';
+      img += '\\u0020src="';
+      img += _this.createDataURL(cellSize, margin);
+      img += '"';
+      img += '\\u0020width="';
+      img += size;
+      img += '"';
+      img += '\\u0020height="';
+      img += size;
+      img += '"';
+      if (alt) {
+        img += '\\u0020alt="';
+        img += escapeXml(alt);
+        img += '"';
+      }
+      img += '/>';
+
+      return img;
+    };
+
+    var escapeXml = function(s) {
+      var escaped = '';
+      for (var i = 0; i < s.length; i += 1) {
+        var c = s.charAt(i);
+        switch(c) {
+        case '<': escaped += '&lt;'; break;
+        case '>': escaped += '&gt;'; break;
+        case '&': escaped += '&amp;'; break;
+        case '"': escaped += '&quot;'; break;
+        default : escaped += c; break;
+        }
+      }
+      return escaped;
+    };
+
+    var _createHalfASCII = function(margin) {
+      var cellSize = 1;
+      margin = (typeof margin == 'undefined')? cellSize * 2 : margin;
+
+      var size = _this.getModuleCount() * cellSize + margin * 2;
+      var min = margin;
+      var max = size - margin;
+
+      var y, x, r1, r2, p;
+
+      var blocks = {
+        '██': '█',
+        '█ ': '▀',
+        ' █': '▄',
+        '  ': ' '
+      };
+
+      var blocksLastLineNoMargin = {
+        '██': '▀',
+        '█ ': '▀',
+        ' █': ' ',
+        '  ': ' '
+      };
+
+      var ascii = '';
+      for (y = 0; y < size; y += 2) {
+        r1 = Math.floor((y - min) / cellSize);
+        r2 = Math.floor((y + 1 - min) / cellSize);
+        for (x = 0; x < size; x += 1) {
+          p = '█';
+
+          if (min <= x && x < max && min <= y && y < max && _this.isDark(r1, Math.floor((x - min) / cellSize))) {
+            p = ' ';
+          }
+
+          if (min <= x && x < max && min <= y+1 && y+1 < max && _this.isDark(r2, Math.floor((x - min) / cellSize))) {
+            p += ' ';
+          }
+          else {
+            p += '█';
+          }
+
+          // Output 2 characters per pixel, to create full square. 1 character per pixels gives only half width of square.
+          ascii += (margin < 1 && y+1 >= max) ? blocksLastLineNoMargin[p] : blocks[p];
+        }
+
+        ascii += '\\n';
+      }
+
+      if (size % 2 && margin > 0) {
+        return ascii.substring(0, ascii.length - size - 1) + Array(size+1).join('▀');
+      }
+
+      return ascii.substring(0, ascii.length-1);
+    };
+
+    _this.createASCII = function(cellSize, margin) {
+      cellSize = cellSize || 1;
+
+      if (cellSize < 2) {
+        return _createHalfASCII(margin);
+      }
+
+      cellSize -= 1;
+      margin = (typeof margin == 'undefined')? cellSize * 2 : margin;
+
+      var size = _this.getModuleCount() * cellSize + margin * 2;
+      var min = margin;
+      var max = size - margin;
+
+      var y, x, r, p;
+
+      var white = Array(cellSize+1).join('██');
+      var black = Array(cellSize+1).join('  ');
+
+      var ascii = '';
+      var line = '';
+      for (y = 0; y < size; y += 1) {
+        r = Math.floor( (y - min) / cellSize);
+        line = '';
+        for (x = 0; x < size; x += 1) {
+          p = 1;
+
+          if (min <= x && x < max && min <= y && y < max && _this.isDark(r, Math.floor((x - min) / cellSize))) {
+            p = 0;
+          }
+
+          // Output 2 characters per pixel, to create full square. 1 character per pixels gives only half width of square.
+          line += p ? white : black;
+        }
+
+        for (r = 0; r < cellSize; r += 1) {
+          ascii += line + '\\n';
+        }
+      }
+
+      return ascii.substring(0, ascii.length-1);
+    };
+
+    _this.renderTo2dContext = function(context, cellSize) {
+      cellSize = cellSize || 2;
+      var length = _this.getModuleCount();
+      for (var row = 0; row < length; row++) {
+        for (var col = 0; col < length; col++) {
+          context.fillStyle = _this.isDark(row, col) ? 'black' : 'white';
+          context.fillRect(col * cellSize, row * cellSize, cellSize, cellSize);
+        }
+      }
+    }
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // qrcode.stringToBytes
+  //---------------------------------------------------------------------
+
+  qrcode.stringToBytesFuncs = {
+    'default' : function(s) {
+      var bytes = [];
+      for (var i = 0; i < s.length; i += 1) {
+        var c = s.charCodeAt(i);
+        bytes.push(c & 0xff);
+      }
+      return bytes;
+    }
+  };
+
+  qrcode.stringToBytes = qrcode.stringToBytesFuncs['default'];
+
+  //---------------------------------------------------------------------
+  // qrcode.createStringToBytes
+  //---------------------------------------------------------------------
+
+  /**
+   * @param unicodeData base64 string of byte array.
+   * [16bit Unicode],[16bit Bytes], ...
+   * @param numChars
+   */
+  qrcode.createStringToBytes = function(unicodeData, numChars) {
+
+    // create conversion map.
+
+    var unicodeMap = function() {
+
+      var bin = base64DecodeInputStream(unicodeData);
+      var read = function() {
+        var b = bin.read();
+        if (b == -1) throw 'eof';
+        return b;
+      };
+
+      var count = 0;
+      var unicodeMap = {};
+      while (true) {
+        var b0 = bin.read();
+        if (b0 == -1) break;
+        var b1 = read();
+        var b2 = read();
+        var b3 = read();
+        var k = String.fromCharCode( (b0 << 8) | b1);
+        var v = (b2 << 8) | b3;
+        unicodeMap[k] = v;
+        count += 1;
+      }
+      if (count != numChars) {
+        throw count + ' != ' + numChars;
+      }
+
+      return unicodeMap;
+    }();
+
+    var unknownChar = '?'.charCodeAt(0);
+
+    return function(s) {
+      var bytes = [];
+      for (var i = 0; i < s.length; i += 1) {
+        var c = s.charCodeAt(i);
+        if (c < 128) {
+          bytes.push(c);
+        } else {
+          var b = unicodeMap[s.charAt(i)];
+          if (typeof b == 'number') {
+            if ( (b & 0xff) == b) {
+              // 1byte
+              bytes.push(b);
+            } else {
+              // 2bytes
+              bytes.push(b >>> 8);
+              bytes.push(b & 0xff);
+            }
+          } else {
+            bytes.push(unknownChar);
+          }
+        }
+      }
+      return bytes;
+    };
+  };
+
+  //---------------------------------------------------------------------
+  // QRMode
+  //---------------------------------------------------------------------
+
+  var QRMode = {
+    MODE_NUMBER :    1 << 0,
+    MODE_ALPHA_NUM : 1 << 1,
+    MODE_8BIT_BYTE : 1 << 2,
+    MODE_KANJI :     1 << 3
+  };
+
+  //---------------------------------------------------------------------
+  // QRErrorCorrectionLevel
+  //---------------------------------------------------------------------
+
+  var QRErrorCorrectionLevel = {
+    L : 1,
+    M : 0,
+    Q : 3,
+    H : 2
+  };
+
+  //---------------------------------------------------------------------
+  // QRMaskPattern
+  //---------------------------------------------------------------------
+
+  var QRMaskPattern = {
+    PATTERN000 : 0,
+    PATTERN001 : 1,
+    PATTERN010 : 2,
+    PATTERN011 : 3,
+    PATTERN100 : 4,
+    PATTERN101 : 5,
+    PATTERN110 : 6,
+    PATTERN111 : 7
+  };
+
+  //---------------------------------------------------------------------
+  // QRUtil
+  //---------------------------------------------------------------------
+
+  var QRUtil = function() {
+
+    var PATTERN_POSITION_TABLE = [
+      [],
+      [6, 18],
+      [6, 22],
+      [6, 26],
+      [6, 30],
+      [6, 34],
+      [6, 22, 38],
+      [6, 24, 42],
+      [6, 26, 46],
+      [6, 28, 50],
+      [6, 30, 54],
+      [6, 32, 58],
+      [6, 34, 62],
+      [6, 26, 46, 66],
+      [6, 26, 48, 70],
+      [6, 26, 50, 74],
+      [6, 30, 54, 78],
+      [6, 30, 56, 82],
+      [6, 30, 58, 86],
+      [6, 34, 62, 90],
+      [6, 28, 50, 72, 94],
+      [6, 26, 50, 74, 98],
+      [6, 30, 54, 78, 102],
+      [6, 28, 54, 80, 106],
+      [6, 32, 58, 84, 110],
+      [6, 30, 58, 86, 114],
+      [6, 34, 62, 90, 118],
+      [6, 26, 50, 74, 98, 122],
+      [6, 30, 54, 78, 102, 126],
+      [6, 26, 52, 78, 104, 130],
+      [6, 30, 56, 82, 108, 134],
+      [6, 34, 60, 86, 112, 138],
+      [6, 30, 58, 86, 114, 142],
+      [6, 34, 62, 90, 118, 146],
+      [6, 30, 54, 78, 102, 126, 150],
+      [6, 24, 50, 76, 102, 128, 154],
+      [6, 28, 54, 80, 106, 132, 158],
+      [6, 32, 58, 84, 110, 136, 162],
+      [6, 26, 54, 82, 110, 138, 166],
+      [6, 30, 58, 86, 114, 142, 170]
+    ];
+    var G15 = (1 << 10) | (1 << 8) | (1 << 5) | (1 << 4) | (1 << 2) | (1 << 1) | (1 << 0);
+    var G18 = (1 << 12) | (1 << 11) | (1 << 10) | (1 << 9) | (1 << 8) | (1 << 5) | (1 << 2) | (1 << 0);
+    var G15_MASK = (1 << 14) | (1 << 12) | (1 << 10) | (1 << 4) | (1 << 1);
+
+    var _this = {};
+
+    var getBCHDigit = function(data) {
+      var digit = 0;
+      while (data != 0) {
+        digit += 1;
+        data >>>= 1;
+      }
+      return digit;
+    };
+
+    _this.getBCHTypeInfo = function(data) {
+      var d = data << 10;
+      while (getBCHDigit(d) - getBCHDigit(G15) >= 0) {
+        d ^= (G15 << (getBCHDigit(d) - getBCHDigit(G15) ) );
+      }
+      return ( (data << 10) | d) ^ G15_MASK;
+    };
+
+    _this.getBCHTypeNumber = function(data) {
+      var d = data << 12;
+      while (getBCHDigit(d) - getBCHDigit(G18) >= 0) {
+        d ^= (G18 << (getBCHDigit(d) - getBCHDigit(G18) ) );
+      }
+      return (data << 12) | d;
+    };
+
+    _this.getPatternPosition = function(typeNumber) {
+      return PATTERN_POSITION_TABLE[typeNumber - 1];
+    };
+
+    _this.getMaskFunction = function(maskPattern) {
+
+      switch (maskPattern) {
+
+      case QRMaskPattern.PATTERN000 :
+        return function(i, j) { return (i + j) % 2 == 0; };
+      case QRMaskPattern.PATTERN001 :
+        return function(i, j) { return i % 2 == 0; };
+      case QRMaskPattern.PATTERN010 :
+        return function(i, j) { return j % 3 == 0; };
+      case QRMaskPattern.PATTERN011 :
+        return function(i, j) { return (i + j) % 3 == 0; };
+      case QRMaskPattern.PATTERN100 :
+        return function(i, j) { return (Math.floor(i / 2) + Math.floor(j / 3) ) % 2 == 0; };
+      case QRMaskPattern.PATTERN101 :
+        return function(i, j) { return (i * j) % 2 + (i * j) % 3 == 0; };
+      case QRMaskPattern.PATTERN110 :
+        return function(i, j) { return ( (i * j) % 2 + (i * j) % 3) % 2 == 0; };
+      case QRMaskPattern.PATTERN111 :
+        return function(i, j) { return ( (i * j) % 3 + (i + j) % 2) % 2 == 0; };
+
+      default :
+        throw 'bad maskPattern:' + maskPattern;
+      }
+    };
+
+    _this.getErrorCorrectPolynomial = function(errorCorrectLength) {
+      var a = qrPolynomial([1], 0);
+      for (var i = 0; i < errorCorrectLength; i += 1) {
+        a = a.multiply(qrPolynomial([1, QRMath.gexp(i)], 0) );
+      }
+      return a;
+    };
+
+    _this.getLengthInBits = function(mode, type) {
+
+      if (1 <= type && type < 10) {
+
+        // 1 - 9
+
+        switch(mode) {
+        case QRMode.MODE_NUMBER    : return 10;
+        case QRMode.MODE_ALPHA_NUM : return 9;
+        case QRMode.MODE_8BIT_BYTE : return 8;
+        case QRMode.MODE_KANJI     : return 8;
+        default :
+          throw 'mode:' + mode;
+        }
+
+      } else if (type < 27) {
+
+        // 10 - 26
+
+        switch(mode) {
+        case QRMode.MODE_NUMBER    : return 12;
+        case QRMode.MODE_ALPHA_NUM : return 11;
+        case QRMode.MODE_8BIT_BYTE : return 16;
+        case QRMode.MODE_KANJI     : return 10;
+        default :
+          throw 'mode:' + mode;
+        }
+
+      } else if (type < 41) {
+
+        // 27 - 40
+
+        switch(mode) {
+        case QRMode.MODE_NUMBER    : return 14;
+        case QRMode.MODE_ALPHA_NUM : return 13;
+        case QRMode.MODE_8BIT_BYTE : return 16;
+        case QRMode.MODE_KANJI     : return 12;
+        default :
+          throw 'mode:' + mode;
+        }
+
+      } else {
+        throw 'type:' + type;
+      }
+    };
+
+    _this.getLostPoint = function(qrcode) {
+
+      var moduleCount = qrcode.getModuleCount();
+
+      var lostPoint = 0;
+
+      // LEVEL1
+
+      for (var row = 0; row < moduleCount; row += 1) {
+        for (var col = 0; col < moduleCount; col += 1) {
+
+          var sameCount = 0;
+          var dark = qrcode.isDark(row, col);
+
+          for (var r = -1; r <= 1; r += 1) {
+
+            if (row + r < 0 || moduleCount <= row + r) {
+              continue;
+            }
+
+            for (var c = -1; c <= 1; c += 1) {
+
+              if (col + c < 0 || moduleCount <= col + c) {
+                continue;
+              }
+
+              if (r == 0 && c == 0) {
+                continue;
+              }
+
+              if (dark == qrcode.isDark(row + r, col + c) ) {
+                sameCount += 1;
+              }
+            }
+          }
+
+          if (sameCount > 5) {
+            lostPoint += (3 + sameCount - 5);
+          }
+        }
+      };
+
+      // LEVEL2
+
+      for (var row = 0; row < moduleCount - 1; row += 1) {
+        for (var col = 0; col < moduleCount - 1; col += 1) {
+          var count = 0;
+          if (qrcode.isDark(row, col) ) count += 1;
+          if (qrcode.isDark(row + 1, col) ) count += 1;
+          if (qrcode.isDark(row, col + 1) ) count += 1;
+          if (qrcode.isDark(row + 1, col + 1) ) count += 1;
+          if (count == 0 || count == 4) {
+            lostPoint += 3;
+          }
+        }
+      }
+
+      // LEVEL3
+
+      for (var row = 0; row < moduleCount; row += 1) {
+        for (var col = 0; col < moduleCount - 6; col += 1) {
+          if (qrcode.isDark(row, col)
+              && !qrcode.isDark(row, col + 1)
+              &&  qrcode.isDark(row, col + 2)
+              &&  qrcode.isDark(row, col + 3)
+              &&  qrcode.isDark(row, col + 4)
+              && !qrcode.isDark(row, col + 5)
+              &&  qrcode.isDark(row, col + 6) ) {
+            lostPoint += 40;
+          }
+        }
+      }
+
+      for (var col = 0; col < moduleCount; col += 1) {
+        for (var row = 0; row < moduleCount - 6; row += 1) {
+          if (qrcode.isDark(row, col)
+              && !qrcode.isDark(row + 1, col)
+              &&  qrcode.isDark(row + 2, col)
+              &&  qrcode.isDark(row + 3, col)
+              &&  qrcode.isDark(row + 4, col)
+              && !qrcode.isDark(row + 5, col)
+              &&  qrcode.isDark(row + 6, col) ) {
+            lostPoint += 40;
+          }
+        }
+      }
+
+      // LEVEL4
+
+      var darkCount = 0;
+
+      for (var col = 0; col < moduleCount; col += 1) {
+        for (var row = 0; row < moduleCount; row += 1) {
+          if (qrcode.isDark(row, col) ) {
+            darkCount += 1;
+          }
+        }
+      }
+
+      var ratio = Math.abs(100 * darkCount / moduleCount / moduleCount - 50) / 5;
+      lostPoint += ratio * 10;
+
+      return lostPoint;
+    };
+
+    return _this;
+  }();
+
+  //---------------------------------------------------------------------
+  // QRMath
+  //---------------------------------------------------------------------
+
+  var QRMath = function() {
+
+    var EXP_TABLE = new Array(256);
+    var LOG_TABLE = new Array(256);
+
+    // initialize tables
+    for (var i = 0; i < 8; i += 1) {
+      EXP_TABLE[i] = 1 << i;
+    }
+    for (var i = 8; i < 256; i += 1) {
+      EXP_TABLE[i] = EXP_TABLE[i - 4]
+        ^ EXP_TABLE[i - 5]
+        ^ EXP_TABLE[i - 6]
+        ^ EXP_TABLE[i - 8];
+    }
+    for (var i = 0; i < 255; i += 1) {
+      LOG_TABLE[EXP_TABLE[i] ] = i;
+    }
+
+    var _this = {};
+
+    _this.glog = function(n) {
+
+      if (n < 1) {
+        throw 'glog(' + n + ')';
+      }
+
+      return LOG_TABLE[n];
+    };
+
+    _this.gexp = function(n) {
+
+      while (n < 0) {
+        n += 255;
+      }
+
+      while (n >= 256) {
+        n -= 255;
+      }
+
+      return EXP_TABLE[n];
+    };
+
+    return _this;
+  }();
+
+  //---------------------------------------------------------------------
+  // qrPolynomial
+  //---------------------------------------------------------------------
+
+  function qrPolynomial(num, shift) {
+
+    if (typeof num.length == 'undefined') {
+      throw num.length + '/' + shift;
+    }
+
+    var _num = function() {
+      var offset = 0;
+      while (offset < num.length && num[offset] == 0) {
+        offset += 1;
+      }
+      var _num = new Array(num.length - offset + shift);
+      for (var i = 0; i < num.length - offset; i += 1) {
+        _num[i] = num[i + offset];
+      }
+      return _num;
+    }();
+
+    var _this = {};
+
+    _this.getAt = function(index) {
+      return _num[index];
+    };
+
+    _this.getLength = function() {
+      return _num.length;
+    };
+
+    _this.multiply = function(e) {
+
+      var num = new Array(_this.getLength() + e.getLength() - 1);
+
+      for (var i = 0; i < _this.getLength(); i += 1) {
+        for (var j = 0; j < e.getLength(); j += 1) {
+          num[i + j] ^= QRMath.gexp(QRMath.glog(_this.getAt(i) ) + QRMath.glog(e.getAt(j) ) );
+        }
+      }
+
+      return qrPolynomial(num, 0);
+    };
+
+    _this.mod = function(e) {
+
+      if (_this.getLength() - e.getLength() < 0) {
+        return _this;
+      }
+
+      var ratio = QRMath.glog(_this.getAt(0) ) - QRMath.glog(e.getAt(0) );
+
+      var num = new Array(_this.getLength() );
+      for (var i = 0; i < _this.getLength(); i += 1) {
+        num[i] = _this.getAt(i);
+      }
+
+      for (var i = 0; i < e.getLength(); i += 1) {
+        num[i] ^= QRMath.gexp(QRMath.glog(e.getAt(i) ) + ratio);
+      }
+
+      // recursive call
+      return qrPolynomial(num, 0).mod(e);
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // QRRSBlock
+  //---------------------------------------------------------------------
+
+  var QRRSBlock = function() {
+
+    var RS_BLOCK_TABLE = [
+
+      // L
+      // M
+      // Q
+      // H
+
+      // 1
+      [1, 26, 19],
+      [1, 26, 16],
+      [1, 26, 13],
+      [1, 26, 9],
+
+      // 2
+      [1, 44, 34],
+      [1, 44, 28],
+      [1, 44, 22],
+      [1, 44, 16],
+
+      // 3
+      [1, 70, 55],
+      [1, 70, 44],
+      [2, 35, 17],
+      [2, 35, 13],
+
+      // 4
+      [1, 100, 80],
+      [2, 50, 32],
+      [2, 50, 24],
+      [4, 25, 9],
+
+      // 5
+      [1, 134, 108],
+      [2, 67, 43],
+      [2, 33, 15, 2, 34, 16],
+      [2, 33, 11, 2, 34, 12],
+
+      // 6
+      [2, 86, 68],
+      [4, 43, 27],
+      [4, 43, 19],
+      [4, 43, 15],
+
+      // 7
+      [2, 98, 78],
+      [4, 49, 31],
+      [2, 32, 14, 4, 33, 15],
+      [4, 39, 13, 1, 40, 14],
+
+      // 8
+      [2, 121, 97],
+      [2, 60, 38, 2, 61, 39],
+      [4, 40, 18, 2, 41, 19],
+      [4, 40, 14, 2, 41, 15],
+
+      // 9
+      [2, 146, 116],
+      [3, 58, 36, 2, 59, 37],
+      [4, 36, 16, 4, 37, 17],
+      [4, 36, 12, 4, 37, 13],
+
+      // 10
+      [2, 86, 68, 2, 87, 69],
+      [4, 69, 43, 1, 70, 44],
+      [6, 43, 19, 2, 44, 20],
+      [6, 43, 15, 2, 44, 16],
+
+      // 11
+      [4, 101, 81],
+      [1, 80, 50, 4, 81, 51],
+      [4, 50, 22, 4, 51, 23],
+      [3, 36, 12, 8, 37, 13],
+
+      // 12
+      [2, 116, 92, 2, 117, 93],
+      [6, 58, 36, 2, 59, 37],
+      [4, 46, 20, 6, 47, 21],
+      [7, 42, 14, 4, 43, 15],
+
+      // 13
+      [4, 133, 107],
+      [8, 59, 37, 1, 60, 38],
+      [8, 44, 20, 4, 45, 21],
+      [12, 33, 11, 4, 34, 12],
+
+      // 14
+      [3, 145, 115, 1, 146, 116],
+      [4, 64, 40, 5, 65, 41],
+      [11, 36, 16, 5, 37, 17],
+      [11, 36, 12, 5, 37, 13],
+
+      // 15
+      [5, 109, 87, 1, 110, 88],
+      [5, 65, 41, 5, 66, 42],
+      [5, 54, 24, 7, 55, 25],
+      [11, 36, 12, 7, 37, 13],
+
+      // 16
+      [5, 122, 98, 1, 123, 99],
+      [7, 73, 45, 3, 74, 46],
+      [15, 43, 19, 2, 44, 20],
+      [3, 45, 15, 13, 46, 16],
+
+      // 17
+      [1, 135, 107, 5, 136, 108],
+      [10, 74, 46, 1, 75, 47],
+      [1, 50, 22, 15, 51, 23],
+      [2, 42, 14, 17, 43, 15],
+
+      // 18
+      [5, 150, 120, 1, 151, 121],
+      [9, 69, 43, 4, 70, 44],
+      [17, 50, 22, 1, 51, 23],
+      [2, 42, 14, 19, 43, 15],
+
+      // 19
+      [3, 141, 113, 4, 142, 114],
+      [3, 70, 44, 11, 71, 45],
+      [17, 47, 21, 4, 48, 22],
+      [9, 39, 13, 16, 40, 14],
+
+      // 20
+      [3, 135, 107, 5, 136, 108],
+      [3, 67, 41, 13, 68, 42],
+      [15, 54, 24, 5, 55, 25],
+      [15, 43, 15, 10, 44, 16],
+
+      // 21
+      [4, 144, 116, 4, 145, 117],
+      [17, 68, 42],
+      [17, 50, 22, 6, 51, 23],
+      [19, 46, 16, 6, 47, 17],
+
+      // 22
+      [2, 139, 111, 7, 140, 112],
+      [17, 74, 46],
+      [7, 54, 24, 16, 55, 25],
+      [34, 37, 13],
+
+      // 23
+      [4, 151, 121, 5, 152, 122],
+      [4, 75, 47, 14, 76, 48],
+      [11, 54, 24, 14, 55, 25],
+      [16, 45, 15, 14, 46, 16],
+
+      // 24
+      [6, 147, 117, 4, 148, 118],
+      [6, 73, 45, 14, 74, 46],
+      [11, 54, 24, 16, 55, 25],
+      [30, 46, 16, 2, 47, 17],
+
+      // 25
+      [8, 132, 106, 4, 133, 107],
+      [8, 75, 47, 13, 76, 48],
+      [7, 54, 24, 22, 55, 25],
+      [22, 45, 15, 13, 46, 16],
+
+      // 26
+      [10, 142, 114, 2, 143, 115],
+      [19, 74, 46, 4, 75, 47],
+      [28, 50, 22, 6, 51, 23],
+      [33, 46, 16, 4, 47, 17],
+
+      // 27
+      [8, 152, 122, 4, 153, 123],
+      [22, 73, 45, 3, 74, 46],
+      [8, 53, 23, 26, 54, 24],
+      [12, 45, 15, 28, 46, 16],
+
+      // 28
+      [3, 147, 117, 10, 148, 118],
+      [3, 73, 45, 23, 74, 46],
+      [4, 54, 24, 31, 55, 25],
+      [11, 45, 15, 31, 46, 16],
+
+      // 29
+      [7, 146, 116, 7, 147, 117],
+      [21, 73, 45, 7, 74, 46],
+      [1, 53, 23, 37, 54, 24],
+      [19, 45, 15, 26, 46, 16],
+
+      // 30
+      [5, 145, 115, 10, 146, 116],
+      [19, 75, 47, 10, 76, 48],
+      [15, 54, 24, 25, 55, 25],
+      [23, 45, 15, 25, 46, 16],
+
+      // 31
+      [13, 145, 115, 3, 146, 116],
+      [2, 74, 46, 29, 75, 47],
+      [42, 54, 24, 1, 55, 25],
+      [23, 45, 15, 28, 46, 16],
+
+      // 32
+      [17, 145, 115],
+      [10, 74, 46, 23, 75, 47],
+      [10, 54, 24, 35, 55, 25],
+      [19, 45, 15, 35, 46, 16],
+
+      // 33
+      [17, 145, 115, 1, 146, 116],
+      [14, 74, 46, 21, 75, 47],
+      [29, 54, 24, 19, 55, 25],
+      [11, 45, 15, 46, 46, 16],
+
+      // 34
+      [13, 145, 115, 6, 146, 116],
+      [14, 74, 46, 23, 75, 47],
+      [44, 54, 24, 7, 55, 25],
+      [59, 46, 16, 1, 47, 17],
+
+      // 35
+      [12, 151, 121, 7, 152, 122],
+      [12, 75, 47, 26, 76, 48],
+      [39, 54, 24, 14, 55, 25],
+      [22, 45, 15, 41, 46, 16],
+
+      // 36
+      [6, 151, 121, 14, 152, 122],
+      [6, 75, 47, 34, 76, 48],
+      [46, 54, 24, 10, 55, 25],
+      [2, 45, 15, 64, 46, 16],
+
+      // 37
+      [17, 152, 122, 4, 153, 123],
+      [29, 74, 46, 14, 75, 47],
+      [49, 54, 24, 10, 55, 25],
+      [24, 45, 15, 46, 46, 16],
+
+      // 38
+      [4, 152, 122, 18, 153, 123],
+      [13, 74, 46, 32, 75, 47],
+      [48, 54, 24, 14, 55, 25],
+      [42, 45, 15, 32, 46, 16],
+
+      // 39
+      [20, 147, 117, 4, 148, 118],
+      [40, 75, 47, 7, 76, 48],
+      [43, 54, 24, 22, 55, 25],
+      [10, 45, 15, 67, 46, 16],
+
+      // 40
+      [19, 148, 118, 6, 149, 119],
+      [18, 75, 47, 31, 76, 48],
+      [34, 54, 24, 34, 55, 25],
+      [20, 45, 15, 61, 46, 16]
+    ];
+
+    var qrRSBlock = function(totalCount, dataCount) {
+      var _this = {};
+      _this.totalCount = totalCount;
+      _this.dataCount = dataCount;
+      return _this;
+    };
+
+    var _this = {};
+
+    var getRsBlockTable = function(typeNumber, errorCorrectionLevel) {
+
+      switch(errorCorrectionLevel) {
+      case QRErrorCorrectionLevel.L :
+        return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 0];
+      case QRErrorCorrectionLevel.M :
+        return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 1];
+      case QRErrorCorrectionLevel.Q :
+        return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 2];
+      case QRErrorCorrectionLevel.H :
+        return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 3];
+      default :
+        return undefined;
+      }
+    };
+
+    _this.getRSBlocks = function(typeNumber, errorCorrectionLevel) {
+
+      var rsBlock = getRsBlockTable(typeNumber, errorCorrectionLevel);
+
+      if (typeof rsBlock == 'undefined') {
+        throw 'bad rs block @ typeNumber:' + typeNumber +
+            '/errorCorrectionLevel:' + errorCorrectionLevel;
+      }
+
+      var length = rsBlock.length / 3;
+
+      var list = [];
+
+      for (var i = 0; i < length; i += 1) {
+
+        var count = rsBlock[i * 3 + 0];
+        var totalCount = rsBlock[i * 3 + 1];
+        var dataCount = rsBlock[i * 3 + 2];
+
+        for (var j = 0; j < count; j += 1) {
+          list.push(qrRSBlock(totalCount, dataCount) );
+        }
+      }
+
+      return list;
+    };
+
+    return _this;
+  }();
+
+  //---------------------------------------------------------------------
+  // qrBitBuffer
+  //---------------------------------------------------------------------
+
+  var qrBitBuffer = function() {
+
+    var _buffer = [];
+    var _length = 0;
+
+    var _this = {};
+
+    _this.getBuffer = function() {
+      return _buffer;
+    };
+
+    _this.getAt = function(index) {
+      var bufIndex = Math.floor(index / 8);
+      return ( (_buffer[bufIndex] >>> (7 - index % 8) ) & 1) == 1;
+    };
+
+    _this.put = function(num, length) {
+      for (var i = 0; i < length; i += 1) {
+        _this.putBit( ( (num >>> (length - i - 1) ) & 1) == 1);
+      }
+    };
+
+    _this.getLengthInBits = function() {
+      return _length;
+    };
+
+    _this.putBit = function(bit) {
+
+      var bufIndex = Math.floor(_length / 8);
+      if (_buffer.length <= bufIndex) {
+        _buffer.push(0);
+      }
+
+      if (bit) {
+        _buffer[bufIndex] |= (0x80 >>> (_length % 8) );
+      }
+
+      _length += 1;
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // qrNumber
+  //---------------------------------------------------------------------
+
+  var qrNumber = function(data) {
+
+    var _mode = QRMode.MODE_NUMBER;
+    var _data = data;
+
+    var _this = {};
+
+    _this.getMode = function() {
+      return _mode;
+    };
+
+    _this.getLength = function(buffer) {
+      return _data.length;
+    };
+
+    _this.write = function(buffer) {
+
+      var data = _data;
+
+      var i = 0;
+
+      while (i + 2 < data.length) {
+        buffer.put(strToNum(data.substring(i, i + 3) ), 10);
+        i += 3;
+      }
+
+      if (i < data.length) {
+        if (data.length - i == 1) {
+          buffer.put(strToNum(data.substring(i, i + 1) ), 4);
+        } else if (data.length - i == 2) {
+          buffer.put(strToNum(data.substring(i, i + 2) ), 7);
+        }
+      }
+    };
+
+    var strToNum = function(s) {
+      var num = 0;
+      for (var i = 0; i < s.length; i += 1) {
+        num = num * 10 + chatToNum(s.charAt(i) );
+      }
+      return num;
+    };
+
+    var chatToNum = function(c) {
+      if ('0' <= c && c <= '9') {
+        return c.charCodeAt(0) - '0'.charCodeAt(0);
+      }
+      throw 'illegal char :' + c;
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // qrAlphaNum
+  //---------------------------------------------------------------------
+
+  var qrAlphaNum = function(data) {
+
+    var _mode = QRMode.MODE_ALPHA_NUM;
+    var _data = data;
+
+    var _this = {};
+
+    _this.getMode = function() {
+      return _mode;
+    };
+
+    _this.getLength = function(buffer) {
+      return _data.length;
+    };
+
+    _this.write = function(buffer) {
+
+      var s = _data;
+
+      var i = 0;
+
+      while (i + 1 < s.length) {
+        buffer.put(
+          getCode(s.charAt(i) ) * 45 +
+          getCode(s.charAt(i + 1) ), 11);
+        i += 2;
+      }
+
+      if (i < s.length) {
+        buffer.put(getCode(s.charAt(i) ), 6);
+      }
+    };
+
+    var getCode = function(c) {
+
+      if ('0' <= c && c <= '9') {
+        return c.charCodeAt(0) - '0'.charCodeAt(0);
+      } else if ('A' <= c && c <= 'Z') {
+        return c.charCodeAt(0) - 'A'.charCodeAt(0) + 10;
+      } else {
+        switch (c) {
+        case ' ' : return 36;
+        case '$' : return 37;
+        case '%' : return 38;
+        case '*' : return 39;
+        case '+' : return 40;
+        case '-' : return 41;
+        case '.' : return 42;
+        case '/' : return 43;
+        case ':' : return 44;
+        default :
+          throw 'illegal char :' + c;
+        }
+      }
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // qr8BitByte
+  //---------------------------------------------------------------------
+
+  var qr8BitByte = function(data) {
+
+    var _mode = QRMode.MODE_8BIT_BYTE;
+    var _data = data;
+    var _bytes = qrcode.stringToBytes(data);
+
+    var _this = {};
+
+    _this.getMode = function() {
+      return _mode;
+    };
+
+    _this.getLength = function(buffer) {
+      return _bytes.length;
+    };
+
+    _this.write = function(buffer) {
+      for (var i = 0; i < _bytes.length; i += 1) {
+        buffer.put(_bytes[i], 8);
+      }
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // qrKanji
+  //---------------------------------------------------------------------
+
+  var qrKanji = function(data) {
+
+    var _mode = QRMode.MODE_KANJI;
+    var _data = data;
+
+    var stringToBytes = qrcode.stringToBytesFuncs['SJIS'];
+    if (!stringToBytes) {
+      throw 'sjis not supported.';
+    }
+    !function(c, code) {
+      // self test for sjis support.
+      var test = stringToBytes(c);
+      if (test.length != 2 || ( (test[0] << 8) | test[1]) != code) {
+        throw 'sjis not supported.';
+      }
+    }('\\u53cb', 0x9746);
+
+    var _bytes = stringToBytes(data);
+
+    var _this = {};
+
+    _this.getMode = function() {
+      return _mode;
+    };
+
+    _this.getLength = function(buffer) {
+      return ~~(_bytes.length / 2);
+    };
+
+    _this.write = function(buffer) {
+
+      var data = _bytes;
+
+      var i = 0;
+
+      while (i + 1 < data.length) {
+
+        var c = ( (0xff & data[i]) << 8) | (0xff & data[i + 1]);
+
+        if (0x8140 <= c && c <= 0x9FFC) {
+          c -= 0x8140;
+        } else if (0xE040 <= c && c <= 0xEBBF) {
+          c -= 0xC140;
+        } else {
+          throw 'illegal char at ' + (i + 1) + '/' + c;
+        }
+
+        c = ( (c >>> 8) & 0xff) * 0xC0 + (c & 0xff);
+
+        buffer.put(c, 13);
+
+        i += 2;
+      }
+
+      if (i < data.length) {
+        throw 'illegal char at ' + (i + 1);
+      }
+    };
+
+    return _this;
+  };
+
+  //=====================================================================
+  // GIF Support etc.
+  //
+
+  //---------------------------------------------------------------------
+  // byteArrayOutputStream
+  //---------------------------------------------------------------------
+
+  var byteArrayOutputStream = function() {
+
+    var _bytes = [];
+
+    var _this = {};
+
+    _this.writeByte = function(b) {
+      _bytes.push(b & 0xff);
+    };
+
+    _this.writeShort = function(i) {
+      _this.writeByte(i);
+      _this.writeByte(i >>> 8);
+    };
+
+    _this.writeBytes = function(b, off, len) {
+      off = off || 0;
+      len = len || b.length;
+      for (var i = 0; i < len; i += 1) {
+        _this.writeByte(b[i + off]);
+      }
+    };
+
+    _this.writeString = function(s) {
+      for (var i = 0; i < s.length; i += 1) {
+        _this.writeByte(s.charCodeAt(i) );
+      }
+    };
+
+    _this.toByteArray = function() {
+      return _bytes;
+    };
+
+    _this.toString = function() {
+      var s = '';
+      s += '[';
+      for (var i = 0; i < _bytes.length; i += 1) {
+        if (i > 0) {
+          s += ',';
+        }
+        s += _bytes[i];
+      }
+      s += ']';
+      return s;
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // base64EncodeOutputStream
+  //---------------------------------------------------------------------
+
+  var base64EncodeOutputStream = function() {
+
+    var _buffer = 0;
+    var _buflen = 0;
+    var _length = 0;
+    var _base64 = '';
+
+    var _this = {};
+
+    var writeEncoded = function(b) {
+      _base64 += String.fromCharCode(encode(b & 0x3f) );
+    };
+
+    var encode = function(n) {
+      if (n < 0) {
+        // error.
+      } else if (n < 26) {
+        return 0x41 + n;
+      } else if (n < 52) {
+        return 0x61 + (n - 26);
+      } else if (n < 62) {
+        return 0x30 + (n - 52);
+      } else if (n == 62) {
+        return 0x2b;
+      } else if (n == 63) {
+        return 0x2f;
+      }
+      throw 'n:' + n;
+    };
+
+    _this.writeByte = function(n) {
+
+      _buffer = (_buffer << 8) | (n & 0xff);
+      _buflen += 8;
+      _length += 1;
+
+      while (_buflen >= 6) {
+        writeEncoded(_buffer >>> (_buflen - 6) );
+        _buflen -= 6;
+      }
+    };
+
+    _this.flush = function() {
+
+      if (_buflen > 0) {
+        writeEncoded(_buffer << (6 - _buflen) );
+        _buffer = 0;
+        _buflen = 0;
+      }
+
+      if (_length % 3 != 0) {
+        // padding
+        var padlen = 3 - _length % 3;
+        for (var i = 0; i < padlen; i += 1) {
+          _base64 += '=';
+        }
+      }
+    };
+
+    _this.toString = function() {
+      return _base64;
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // base64DecodeInputStream
+  //---------------------------------------------------------------------
+
+  var base64DecodeInputStream = function(str) {
+
+    var _str = str;
+    var _pos = 0;
+    var _buffer = 0;
+    var _buflen = 0;
+
+    var _this = {};
+
+    _this.read = function() {
+
+      while (_buflen < 8) {
+
+        if (_pos >= _str.length) {
+          if (_buflen == 0) {
+            return -1;
+          }
+          throw 'unexpected end of file./' + _buflen;
+        }
+
+        var c = _str.charAt(_pos);
+        _pos += 1;
+
+        if (c == '=') {
+          _buflen = 0;
+          return -1;
+        } else if (c.match(/^\\s$/) ) {
+          // ignore if whitespace.
+          continue;
+        }
+
+        _buffer = (_buffer << 6) | decode(c.charCodeAt(0) );
+        _buflen += 6;
+      }
+
+      var n = (_buffer >>> (_buflen - 8) ) & 0xff;
+      _buflen -= 8;
+      return n;
+    };
+
+    var decode = function(c) {
+      if (0x41 <= c && c <= 0x5a) {
+        return c - 0x41;
+      } else if (0x61 <= c && c <= 0x7a) {
+        return c - 0x61 + 26;
+      } else if (0x30 <= c && c <= 0x39) {
+        return c - 0x30 + 52;
+      } else if (c == 0x2b) {
+        return 62;
+      } else if (c == 0x2f) {
+        return 63;
+      } else {
+        throw 'c:' + c;
+      }
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // gifImage (B/W)
+  //---------------------------------------------------------------------
+
+  var gifImage = function(width, height) {
+
+    var _width = width;
+    var _height = height;
+    var _data = new Array(width * height);
+
+    var _this = {};
+
+    _this.setPixel = function(x, y, pixel) {
+      _data[y * _width + x] = pixel;
+    };
+
+    _this.write = function(out) {
+
+      //---------------------------------
+      // GIF Signature
+
+      out.writeString('GIF87a');
+
+      //---------------------------------
+      // Screen Descriptor
+
+      out.writeShort(_width);
+      out.writeShort(_height);
+
+      out.writeByte(0x80); // 2bit
+      out.writeByte(0);
+      out.writeByte(0);
+
+      //---------------------------------
+      // Global Color Map
+
+      // black
+      out.writeByte(0x00);
+      out.writeByte(0x00);
+      out.writeByte(0x00);
+
+      // white
+      out.writeByte(0xff);
+      out.writeByte(0xff);
+      out.writeByte(0xff);
+
+      //---------------------------------
+      // Image Descriptor
+
+      out.writeString(',');
+      out.writeShort(0);
+      out.writeShort(0);
+      out.writeShort(_width);
+      out.writeShort(_height);
+      out.writeByte(0);
+
+      //---------------------------------
+      // Local Color Map
+
+      //---------------------------------
+      // Raster Data
+
+      var lzwMinCodeSize = 2;
+      var raster = getLZWRaster(lzwMinCodeSize);
+
+      out.writeByte(lzwMinCodeSize);
+
+      var offset = 0;
+
+      while (raster.length - offset > 255) {
+        out.writeByte(255);
+        out.writeBytes(raster, offset, 255);
+        offset += 255;
+      }
+
+      out.writeByte(raster.length - offset);
+      out.writeBytes(raster, offset, raster.length - offset);
+      out.writeByte(0x00);
+
+      //---------------------------------
+      // GIF Terminator
+      out.writeString(';');
+    };
+
+    var bitOutputStream = function(out) {
+
+      var _out = out;
+      var _bitLength = 0;
+      var _bitBuffer = 0;
+
+      var _this = {};
+
+      _this.write = function(data, length) {
+
+        if ( (data >>> length) != 0) {
+          throw 'length over';
+        }
+
+        while (_bitLength + length >= 8) {
+          _out.writeByte(0xff & ( (data << _bitLength) | _bitBuffer) );
+          length -= (8 - _bitLength);
+          data >>>= (8 - _bitLength);
+          _bitBuffer = 0;
+          _bitLength = 0;
+        }
+
+        _bitBuffer = (data << _bitLength) | _bitBuffer;
+        _bitLength = _bitLength + length;
+      };
+
+      _this.flush = function() {
+        if (_bitLength > 0) {
+          _out.writeByte(_bitBuffer);
+        }
+      };
+
+      return _this;
+    };
+
+    var getLZWRaster = function(lzwMinCodeSize) {
+
+      var clearCode = 1 << lzwMinCodeSize;
+      var endCode = (1 << lzwMinCodeSize) + 1;
+      var bitLength = lzwMinCodeSize + 1;
+
+      // Setup LZWTable
+      var table = lzwTable();
+
+      for (var i = 0; i < clearCode; i += 1) {
+        table.add(String.fromCharCode(i) );
+      }
+      table.add(String.fromCharCode(clearCode) );
+      table.add(String.fromCharCode(endCode) );
+
+      var byteOut = byteArrayOutputStream();
+      var bitOut = bitOutputStream(byteOut);
+
+      // clear code
+      bitOut.write(clearCode, bitLength);
+
+      var dataIndex = 0;
+
+      var s = String.fromCharCode(_data[dataIndex]);
+      dataIndex += 1;
+
+      while (dataIndex < _data.length) {
+
+        var c = String.fromCharCode(_data[dataIndex]);
+        dataIndex += 1;
+
+        if (table.contains(s + c) ) {
+
+          s = s + c;
+
+        } else {
+
+          bitOut.write(table.indexOf(s), bitLength);
+
+          if (table.size() < 0xfff) {
+
+            if (table.size() == (1 << bitLength) ) {
+              bitLength += 1;
+            }
+
+            table.add(s + c);
+          }
+
+          s = c;
+        }
+      }
+
+      bitOut.write(table.indexOf(s), bitLength);
+
+      // end code
+      bitOut.write(endCode, bitLength);
+
+      bitOut.flush();
+
+      return byteOut.toByteArray();
+    };
+
+    var lzwTable = function() {
+
+      var _map = {};
+      var _size = 0;
+
+      var _this = {};
+
+      _this.add = function(key) {
+        if (_this.contains(key) ) {
+          throw 'dup key:' + key;
+        }
+        _map[key] = _size;
+        _size += 1;
+      };
+
+      _this.size = function() {
+        return _size;
+      };
+
+      _this.indexOf = function(key) {
+        return _map[key];
+      };
+
+      _this.contains = function(key) {
+        return typeof _map[key] != 'undefined';
+      };
+
+      return _this;
+    };
+
+    return _this;
+  };
+
+  var createDataURL = function(width, height, getPixel) {
+    var gif = gifImage(width, height);
+    for (var y = 0; y < height; y += 1) {
+      for (var x = 0; x < width; x += 1) {
+        gif.setPixel(x, y, getPixel(x, y) );
+      }
+    }
+
+    var b = byteArrayOutputStream();
+    gif.write(b);
+
+    var base64 = base64EncodeOutputStream();
+    var bytes = b.toByteArray();
+    for (var i = 0; i < bytes.length; i += 1) {
+      base64.writeByte(bytes[i]);
+    }
+    base64.flush();
+
+    return 'data:image/gif;base64,' + base64;
+  };
+
+  //---------------------------------------------------------------------
+  // returns qrcode function.
+
+  return qrcode;
+}();
+
+// multibyte support
+!function() {
+
+  qrcode.stringToBytesFuncs['UTF-8'] = function(s) {
+    // http://stackoverflow.com/questions/18729405/how-to-convert-utf8-string-to-byte-array
+    function toUTF8Array(str) {
+      var utf8 = [];
+      for (var i=0; i < str.length; i++) {
+        var charcode = str.charCodeAt(i);
+        if (charcode < 0x80) utf8.push(charcode);
+        else if (charcode < 0x800) {
+          utf8.push(0xc0 | (charcode >> 6),
+              0x80 | (charcode & 0x3f));
+        }
+        else if (charcode < 0xd800 || charcode >= 0xe000) {
+          utf8.push(0xe0 | (charcode >> 12),
+              0x80 | ((charcode>>6) & 0x3f),
+              0x80 | (charcode & 0x3f));
+        }
+        // surrogate pair
+        else {
+          i++;
+          // UTF-16 encodes 0x10000-0x10FFFF by
+          // subtracting 0x10000 and splitting the
+          // 20 bits of 0x0-0xFFFFF into two halves
+          charcode = 0x10000 + (((charcode & 0x3ff)<<10)
+            | (str.charCodeAt(i) & 0x3ff));
+          utf8.push(0xf0 | (charcode >>18),
+              0x80 | ((charcode>>12) & 0x3f),
+              0x80 | ((charcode>>6) & 0x3f),
+              0x80 | (charcode & 0x3f));
+        }
+      }
+      return utf8;
+    }
+    return toUTF8Array(s);
+  };
+
+}();
+
+(function (factory) {
+  if (typeof define === 'function' && define.amd) {
+      define([], factory);
+  } else if (typeof exports === 'object') {
+      module.exports = factory();
+  }
+}(function () {
+    return qrcode;
+}));
+
+//---------------------------------------------------------------------
+//
+// QR Code Generator for JavaScript UTF8 Support (optional)
+//
+// Copyright (c) 2011 Kazuhiko Arase
+//
+// URL: http://www.d-project.com/
+//
+// Licensed under the MIT license:
+//  http://www.opensource.org/licenses/mit-license.php
+//
+// The word 'QR Code' is registered trademark of
+// DENSO WAVE INCORPORATED
+//  http://www.denso-wave.com/qrcode/faqpatent-e.html
+//
+//---------------------------------------------------------------------
+
+!function(qrcode) {
+
+  //---------------------------------------------------------------------
+  // overwrite qrcode.stringToBytes
+  //---------------------------------------------------------------------
+
+  qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
+
+}(qrcode);
+
+<\/script>
+                        <style>
+                            @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700;800&display=swap');
+                            
+                            * {
+                                box-sizing: border-box;
+                            }
+                            
+                            body { 
+                                font-family: 'Sarabun', sans-serif; 
+                                padding: 20px; 
+                                color: #000; 
+                                background-color: #fff;
+                                margin: 0;
+                            }
+
+                            .header-container {
+                                text-align: center;
+                                margin-bottom: 25px;
+                                border-bottom: 2px solid #e2e8f0;
+                                padding-bottom: 15px;
+                            }
+
+                            h2 { 
+                                color: #1e293b; 
+                                font-size: 20px;
+                                margin: 0 0 5px 0; 
+                            }
+                            
+                            .subtitle {
+                                font-size: 12px;
+                                color: #64748b;
+                                margin: 0;
+                            }
+
+                            /* หน้ากระดาษ = ขนาดจริง 9 ซม. x 7 ซม. เท่ากันทั้ง 2 รูปแบบ ต่างกันแค่จำนวนสติกเกอร์ต่อแผ่น (1 ใบ หรือ 2 ใบวางคู่) */
+                            @page {
+                                size: 9cm 7cm; /* กำหนดที่ระดับบนสุด นอก @media print เพื่อให้เบราว์เซอร์/ไดรเวอร์อ่านค่าได้แน่นอนกว่า */
+                                margin: 0;
+                            }
+
+                            /* กันไว้อีกชั้น: บังคับให้ html/body มีขนาดพอดี 1 หน้าเป๊ะๆ ไม่ให้เบราว์เซอร์แอบเผื่อขอบ/ระยะ header-footer เกินมา
+                               เพราะถ้าความสูงจริงที่พิมพ์ออกมาต่อหน้าเกิน 7cm แม้เพียงเล็กน้อย เครื่องพิมพ์สติกเกอร์แบบตัดม้วน (มีเซนเซอร์จับช่องว่างระหว่างดวง)
+                               จะเลื่อนกระดาษเกินไปอีก 1 ดวงเพื่อรอจับช่องว่างใหม่ ทำให้ปริ้นออกมาเว้นดวงสลับกันตามที่เจอปัญหา */
+                            html, body {
+                                width: 9cm;
+                                margin: 0 !important;
+                                padding: 0 !important;
+                            }
+                            @media print {
+                                html, body {
+                                    width: 9cm;
+                                    margin: 0 !important;
+                                    padding: 0 !important;
+                                }
+                            }
+
+                            .print-page {
+                                width: 9cm;
+                                height: 7cm;
+                                display: flex;
+                                flex-direction: row;
+                                page-break-after: always;
+                                break-after: page;
+                            }
+                            .print-page:last-child {
+                                page-break-after: auto;
+                                break-after: auto;
+                            }
+                            ${isPairLayout ? `
+                            /* [รูปแบบ 2 ใบ/แผ่น] การ์ดสติกเกอร์ 1 ใบ = ครึ่งหน้า (4.5 x 7 ซม.) วางคู่ซ้าย-ขวา 2 ใบต่อแผ่น */
+                            .sticker-card {
+                                position: relative;
+                                border: 1px dashed #7f8c8d; /* เส้นประไว้ดูตำแหน่งตอนพรีวิวบนจอ */
+                                background-color: #fff;
+                                height: 100%;
+                                flex: 1 1 0;
+                                overflow: hidden;
+                                box-sizing: border-box;
+                                page-break-inside: avoid;
+                                break-inside: avoid;
+                            }
+
+                            /* หมุนข้อความ+QR ทั้งกลุ่มรวมกัน 90 องศา ให้อ่านได้จากด้านข้างของสติกเกอร์
+                               จัดเป็นแถวแนวนอน (row): ข้อความชิดด้านหนึ่ง QR ชิดอีกด้านหนึ่ง ใช้พื้นที่ตามแกนยาวของป้าย (6.6cm) */
+                            .sticker-content {
+                                position: absolute;
+                                top: 50%;
+                                left: 50%;
+                                width: 6.6cm; /* ก่อนหมุน = ความสูงจริงของการ์ดหลังหมุน (เผื่อขอบไว้เล็กน้อย) */
+                                transform: translate(-50%, -50%) rotate(90deg);
+                                display: flex;
+                                flex-direction: row;
+                                align-items: center;
+                                justify-content: space-between;
+                                gap: 8px;
+                            }
+
+                            /* กลุ่มบรรทัดข้อความ ชิดซ้าย เรียงต่อกันในแนวตั้งปกติ (ไม่หมุนซ้ำ) */
+                            .sticker-lines {
+                                display: flex;
+                                flex-direction: column;
+                                align-items: flex-start;
+                                text-align: left;
+                                flex: 1 1 auto;
+                                min-width: 0; /* กัน flex item ดันความกว้างเกินจน QR ถูกบีบหาย */
+                            }
+
+                            /* กล่อง QR Code อยู่ข้างๆ กลุ่มข้อความ (ไม่ใช่ซ้อนอยู่ด้านล่าง) */
+                            .sticker-qr {
+                                flex: 0 0 auto;
+                                width: ${STICKER_QR_SIZE_PX}px;
+                                height: ${STICKER_QR_SIZE_PX}px;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                            }
+                            .sticker-qr img,
+                            .sticker-qr canvas,
+                            .sticker-qr table {
+                                width: ${STICKER_QR_SIZE_PX}px !important;
+                                height: ${STICKER_QR_SIZE_PX}px !important;
+                            }
+
+                            /* แต่ละบรรทัดบนสติกเกอร์: ทุกบรรทัดใช้ขนาดและความหนาของตัวอักษรเท่ากันทั้งหมด ไม่มีบรรทัดไหนเด่นเป็นพิเศษ */
+                            .sticker-line {
+                                font-weight: 700;
+                                line-height: 1.15;
+                                margin-bottom: 3px;
+                                color: #000;
+                                word-break: break-word;
+                                max-width: 100%;
+                            }
+                            .sticker-line:last-child {
+                                margin-bottom: 0;
+                            }
+
+                            /* จัดแต่งหน้าเมื่อทำการสั่งพิมพ์จริงๆ */
+                            @media print {
+                                .header-container {
+                                    display: none; /* ซ่อนหัวเว็บเมื่อทำการปริ้น */
+                                }
+                                body {
+                                    padding: 0;
+                                    margin: 0;
+                                }
+                                .sticker-card {
+                                    border: none; /* ไม่ต้องมีเส้นประรอบขอบนอก เพราะตรงกับขอบกระดาษอยู่แล้ว */
+                                }
+                                /* เส้นประคั่นกลางระหว่างสติกเกอร์ใบซ้าย-ขวา ไว้เป็นแนวตัดแบ่ง */
+                                .sticker-card:first-child {
+                                    border-right: 1px dashed #7f8c8d;
+                                }
+                            }
+                            ` : `
+                            /* [รูปแบบ 1 ใบ/แผ่น] การ์ดสติกเกอร์ 1 ใบ = เต็มหน้า (9 x 7 ซม.) จัดกึ่งกลางเนื้อหาในแนวนอนปกติ (ไม่หมุน) */
+                            .sticker-card {
+                                position: relative;
+                                border: 1px dashed #7f8c8d; /* เส้นประไว้ดูตำแหน่งตอนพรีวิวบนจอ */
+                                background-color: #fff;
+                                height: 100%;
+                                flex: 1 1 0;
+                                overflow: hidden;
+                                box-sizing: border-box;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                padding: 15px;
+                                page-break-inside: avoid;
+                                break-inside: avoid;
+                            }
+
+                            /* กลุ่มข้อความ+QR จัดเป็นแนวนอน (row): กล่อง QR อยู่ซ้าย ตามด้วยกลุ่มข้อความแนวตั้ง (หมุน 90 องศา) อยู่ขวา */
+                            .sticker-content {
+                                width: 100%;
+                                display: flex;
+                                flex-direction: row-reverse;
+                                align-items: center;
+                                justify-content: center;
+                                gap: 10px;
+                            }
+
+                            /* กลุ่มบรรทัดข้อความ: หมุนข้อความเป็นแนวตั้ง 90 องศา (เขียนจากบนลงล่าง)
+                               แต่ละบรรทัดยังคงชิดขอบเดียวกัน (จัดเรียงจากขอบบนของกล่อง) เหมือนแบบเก่า */
+                            .sticker-lines {
+                                writing-mode: vertical-rl;
+                                text-orientation: mixed;
+                                max-height: 100%;
+                            }
+
+                            /* กล่อง QR Code อยู่ด้านล่างกลุ่มข้อความ */
+                            .sticker-qr {
+                                flex: 0 0 auto;
+                                width: ${STICKER_QR_SIZE_PX}px;
+                                height: ${STICKER_QR_SIZE_PX}px;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                            }
+                            .sticker-qr img,
+                            .sticker-qr canvas,
+                            .sticker-qr table {
+                                width: ${STICKER_QR_SIZE_PX}px !important;
+                                height: ${STICKER_QR_SIZE_PX}px !important;
+                            }
+
+                            /* แต่ละบรรทัดบนสติกเกอร์: ทุกบรรทัดใช้ขนาดและความหนาของตัวอักษรเท่ากันทั้งหมด ไม่มีบรรทัดไหนเด่นเป็นพิเศษ */
+                            .sticker-line {
+                                font-weight: 700;
+                                line-height: 1.15;
+                                margin-block-end: 3px; /* ระยะห่างระหว่างแต่ละ "คอลัมน์" ข้อความ (ปรับตามทิศทางการเขียนอัตโนมัติ ทั้งแนวนอนและแนวตั้ง) */
+                                color: #000;
+                                word-break: break-word;
+                                max-height: 100%;
+                            }
+                            .sticker-line:last-child {
+                                margin-block-end: 0;
+                            }
+
+                            /* จัดแต่งหน้าเมื่อทำการสั่งพิมพ์จริงๆ */
+                            @media print {
+                                .header-container {
+                                    display: none; /* ซ่อนหัวเว็บเมื่อทำการปริ้น */
+                                }
+                                body {
+                                    padding: 0;
+                                    margin: 0;
+                                }
+                                .sticker-card {
+                                    border: none; /* ไม่ต้องมีเส้นประรอบขอบนอก เพราะตรงกับขอบกระดาษอยู่แล้ว */
+                                }
+                            }
+                            `}
+                        </style>
+                    </head>
+                    <body>
+                        <div class="header-container">
+                            <h2>ตัวอย่างสติกเกอร์ติดกระสอบสินค้า (${isPairLayout ? 'แผ่นละ 2 ใบ ขนาดรวม 9x7 ซม.' : 'แผ่นละ 1 ใบ ขนาด 9x7 ซม.'})</h2>
+                            <p class="subtitle">พิมพ์ทั้งหมด ${dataRows.length} แถวที่เลือกไว้ — จัดฟิลด์บนสติกเกอร์ให้อัตโนมัติตามชื่อคอลัมน์ในไฟล์</p>
+                        </div>
+                `;
+
+                // ฟังก์ชันช่วย escape ค่าข้อมูลก่อนแทรกลง HTML กันอักขระพิเศษ (< > &) ทำโครงสร้างเพี้ยน
+                const escapeHtml = (val) => {
+                    return val.toString()
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/"/g, '&quot;');
+                };
+
+                // เก็บ HTML ของสติกเกอร์แต่ละใบไว้ก่อน (1 แผ่น = 1 ใบ ไม่ต้องจับคู่)
+                const stickerCards = [];
+                dataRows.forEach((item) => {
+                    // dataRows อาจเป็น row array ตรงๆ (ของเดิม) หรือ {row, batchPosition, huValue} (เมื่อผู้ใช้เลือก Batch/HU เองจาก Dropdown ในตาราง)
+                    const row = Array.isArray(item) ? item : item.row;
+                    const overrideBatchPosition = Array.isArray(item) ? null : item.batchPosition;
+                    const overrideHu = Array.isArray(item) ? null : item.huValue;
+                    const overrideSubIndex = Array.isArray(item) ? null : item.subIndex;
+                    const overrideLabelPosition = Array.isArray(item) ? null : item.labelPosition;
+
+                    let linesHTML = '';
+                    let missingRequiredField = false; // true หากฟิลด์บังคับ (เช่นวันหมดอายุ) ไม่มีข้อมูลในแถวนี้
+
+                    // หา Batch/EXP ที่จะใช้แสดงของแถวนี้ไว้ล่วงหน้าครั้งเดียว ให้ทั้งบรรทัด Batch ตัวเต็ม, บรรทัด EXP วันหมดอายุ
+                    // และข้อมูลใน QR Code ใช้ Batch กลุ่มเดียวกันตรงกันหมด (ไม่ใช่ต่างกลุ่มกันเพราะสุ่มหยิบคนละที่)
+                    // ถ้าผู้ใช้เลือก Batch/EXP รายการใดรายการหนึ่งไว้เองจาก Dropdown (overrideBatchPosition + overrideSubIndex มาคู่กันเสมอ)
+                    // ใช้ข้อมูลจริงของกลุ่มและค่าย่อยนั้นตรงๆ ไม่ใช้ค่าที่ระบบหาให้อัตโนมัติ
+                    const autoValidEntry = expColumnIndices.length > 0 ? getFirstValidExpEntry(row, expColumnIndices) : null;
+                    const hasOverridePosition = overrideBatchPosition !== null && overrideBatchPosition !== undefined;
+                    let validExpEntry = autoValidEntry;
+                    if (hasOverridePosition) {
+                        const expIdxOverride = expColumnIndices[overrideBatchPosition];
+                        const expRawOverride = expIdxOverride !== undefined ? row[expIdxOverride] : undefined;
+                        const expPartsOverride = getExpSubOptions(expRawOverride);
+                        const subIdxOverride = (overrideSubIndex !== null && overrideSubIndex !== undefined) ? overrideSubIndex : 0;
+                        const expValOverride = expPartsOverride[subIdxOverride] !== undefined
+                            ? expPartsOverride[subIdxOverride]
+                            : (expPartsOverride[expPartsOverride.length - 1] !== undefined ? expPartsOverride[expPartsOverride.length - 1] : expRawOverride);
+                        validExpEntry = { position: overrideBatchPosition, subIndex: subIdxOverride, value: expValOverride };
+                    }
+
+                    // กรณีเซลล์ Batch ตัวเต็ม/วันหมดอายุของกลุ่มที่เลือกแสดง มีมากกว่า 1 ค่าในเซลล์เดียว (คั่นด้วย "/" หรือ ",")
+                    // ใช้ตัวเลือกย่อยที่ผู้ใช้เลือกไว้จาก Dropdown "Batch/EXP" ถ้ามี ไม่งั้นใช้ค่าที่ระบบหาให้อัตโนมัติ (subIndex จาก validExpEntry)
+                    const subOptionsForPrint = validExpEntry !== null ? getSubOptionsForRow(row, validExpEntry.position) : [];
+                    let chosenSub = null;
+                    if (subOptionsForPrint.length > 0) {
+                        const autoSubIdx = validExpEntry !== null ? validExpEntry.subIndex : 0;
+                        const wantedSubIdx = (overrideSubIndex !== null && overrideSubIndex !== undefined) ? overrideSubIndex : autoSubIdx;
+                        chosenSub = subOptionsForPrint.find(o => o.index === wantedSubIdx) || subOptionsForPrint[0];
+                    }
+
+                    // ตำแหน่งเลข 01/02 ที่จะต่อท้ายบรรทัดวันหมดอายุ — ใช้ตามที่ผู้ใช้เลือกไว้ในช่อง Dropdown "Batch" (เป็นแค่ Label) ถ้ามี
+                    // ไม่มีเลือกเอง ก็ใช้ตำแหน่งเดียวกับกลุ่มที่กำลังแสดงข้อมูลจริงอยู่แทน (validExpEntry.position)
+                    const labelPosition = (overrideLabelPosition !== null && overrideLabelPosition !== undefined)
+                        ? overrideLabelPosition
+                        : (validExpEntry !== null ? validExpEntry.position : null);
+
+                    printFields.forEach((col) => {
+                        let cellVal = '';
+                        if (col.category === 'exp') {
+                            // ฟิลด์วันหมดอายุ: ใช้ข้อมูลจริงจากกลุ่มที่ระบบหาให้อัตโนมัติเสมอ ไม่ผูกกับเลข Label ที่ผู้ใช้เลือกต่อท้าย
+                            // ถ้าเซลล์นี้มีหลายค่า (คั่นด้วย ",") ใช้ค่าที่เลือกจาก Dropdown ตัวเลือกย่อยแทนค่าแรกที่ระบบหาให้อัตโนมัติ
+                            const expVal = chosenSub !== null ? chosenSub.exp : (validExpEntry !== null ? validExpEntry.value : '');
+                            if (expVal !== undefined && expVal !== null && expVal.toString().trim() !== '') {
+                                // ต่อท้ายด้วยเลขกลุ่ม Batch (01/02) ตาม Label ที่ผู้ใช้เลือกไว้เอง เช่น "EXP 13/1/2028/01"
+                                let expDisplay = expVal;
+                                if (labelPosition !== null) {
+                                    const batchLabel = String(labelPosition + 1).padStart(2, '0');
+                                    expDisplay = `${expVal}/${batchLabel}`;
+                                }
+                                cellVal = `EXP : ${expDisplay}`;
+                            } else {
+                                cellVal = '';
+                            }
+                        } else if (col.category === 'receiveddate') {
+                            // ฟิลด์วันรับเข้า: แสดงตามข้อมูลจริง ไม่ต่อท้ายเลขกลุ่ม Batch แล้ว (ย้ายไปต่อท้ายบรรทัดวันหมดอายุแทน)
+                            cellVal = receivedDateColumnIndex !== null ? row[receivedDateColumnIndex] : '';
+                        } else if (col.category === 'batch' && validExpEntry !== null && col.type === 'combined') {
+                            // ฟิลด์ Batch ตัวเต็ม: ใช้ Batch กลุ่มเดียวกับที่เลือกแสดง (ตำแหน่งเดียวกับ validExpEntry.position)
+                            // ถ้าเซลล์นี้มีหลายค่า (คั่นด้วย "/") ใช้ค่าที่เลือกจาก Dropdown ตัวเลือกย่อยแทนค่าแรกที่ระบบหาให้อัตโนมัติ
+                            if (chosenSub !== null) {
+                                cellVal = chosenSub.batch;
+                            } else {
+                                const batchIdx = batchColumnIndices[validExpEntry.position];
+                                cellVal = batchIdx !== undefined ? row[batchIdx] : '';
+                            }
+                        } else if (col.type === 'combined') {
+                            // ฟิลด์รวม: ไล่หาค่าที่มีข้อมูลจริงตัวแรกจากกลุ่มคอลัมน์ที่ผูกกันไว้ (ใช้เมื่อไม่มี validExpEntry ให้อ้างอิง)
+                            for (const idx of col.indices) {
+                                const v = row[idx];
+                                if (v !== undefined && v !== null && v.toString().trim() !== '') {
+                                    cellVal = v;
+                                    break;
+                                }
+                            }
+                        } else {
+                            cellVal = row[col.index];
+                        }
+                        const hasVal = cellVal !== undefined && cellVal !== null && cellVal.toString().trim() !== '';
+                        if (!hasVal) {
+                            if (col.required) missingRequiredField = true;
+                            return;
+                        }
+                        // ใช้ขนาดฟอนต์เดียวกันทุกฟิลด์บนสติกเกอร์ ให้ความเข้ม (น้ำหนักตัวอักษร) และขนาดเท่ากันหมด ไม่เน้นบรรทัดใดบรรทัดหนึ่งเป็นพิเศษ
+                        const fontSize = STICKER_FONT_SIZE;
+                        const prefix = col.prefix || '';
+                        linesHTML += `<div class="sticker-line" style="font-size:${fontSize}px;">${prefix}${escapeHtml(cellVal)}</div>`;
+                    });
+
+                    // ข้ามทั้งสติกเกอร์ หากฟิลด์บังคับ (เช่นวันหมดอายุ) ไม่มีข้อมูลในแถวนี้
+                    if (missingRequiredField) return;
+
+                    // ข้ามแถวที่ไม่มีข้อมูลเลยสักบรรทัด (ไม่พิมพ์สติกเกอร์เปล่า)
+                    if (linesHTML === '') return;
+
+                    // ประกอบข้อมูลสำหรับ QR Code: Mat, Batch ตัวเต็ม (กลุ่มเดียวกับที่เลือกแสดง), HU + น้ำหนักต่อกระสอบ(KG) รวมบรรทัดเดียวกัน
+                    const qrMatVal = qrFieldIndices.code !== undefined ? row[qrFieldIndices.code] : '';
+                    let qrBatchVal = '';
+                    if (chosenSub !== null) {
+                        qrBatchVal = chosenSub.batch;
+                    } else if (validExpEntry !== null) {
+                        const bIdx = batchColumnIndices[validExpEntry.position];
+                        if (bIdx !== undefined) qrBatchVal = row[bIdx];
+                    }
+                    // HU: ใช้ค่าที่ผู้ใช้เลือกจาก Dropdown ถ้ามี ไม่งั้นใช้ค่าแรกของช่อง HU (เผื่อกรณีช่อง HU มีหลายค่าคั่นด้วย "/" เช่น "208889537/20889356"
+                    // คั่นด้วย "-" เช่น "208800306-208800316-208800326" หรือคั่นด้วย "+" เช่น "208800306+208800316"
+                    // ต้องตัดมาใช้แค่ค่าแรก ไม่ใช่ทั้งสตริงดิบ ให้ตรงกับค่าที่ Dropdown แสดงเป็นค่าเริ่มต้น)
+                    const rawHuVal = qrFieldIndices.hu !== undefined ? row[qrFieldIndices.hu] : '';
+                    const firstHuOption = (rawHuVal !== undefined && rawHuVal !== null && rawHuVal.toString().trim() !== '')
+                        ? rawHuVal.toString().split(/[/\-+]/).map(s => s.trim()).filter(s => s !== '')[0]
+                        : '';
+                    const qrHuVal = (overrideHu !== null && overrideHu !== undefined && overrideHu !== '') ? overrideHu : firstHuOption;
+                    const qrWeightVal = qrFieldIndices.weightperbag !== undefined ? row[qrFieldIndices.weightperbag] : '';
+                    const cleanQr = (v) => (v === undefined || v === null || v.toString().trim() === '') ? '' : v.toString().trim();
+                    const huClean = cleanQr(qrHuVal);
+                    const weightNum = parseFloat(qrWeightVal);
+                    const weightClean = !isNaN(weightNum) ? `| ${weightNum.toFixed(2)} | KG` : '';
+                    const huLine = [huClean, weightClean].filter(s => s !== '').join(' ');
+                    const qrText = `${cleanQr(qrMatVal) || '-'} | ${cleanQr(qrBatchVal) || '-'} | ${huLine || '-'}`;
+
+                    stickerCards.push(`
+                        <div class="sticker-card">
+                            <div class="sticker-content">
+                                <div class="sticker-lines">${linesHTML}</div>
+                                <div class="sticker-qr" data-qrtext="${escapeHtml(qrText)}"></div>
+                            </div>
+                        </div>
+                    `);
+                });
+
+                if (stickerCards.length === 0) {
+                    showCustomModal('ไม่มีสติกเกอร์ที่พิมพ์ได้', 'แถวที่เลือกไว้ไม่มีข้อมูลในฟิลด์บังคับ (เช่นวันหมดอายุ) เลยสักแถว จึงไม่มีสติกเกอร์ที่จะพิมพ์', 'warning');
+                    return;
+                }
+                if (isPairLayout) {
+                    // [รูปแบบ 2 ใบ/แผ่น] เผื่อกรณีจำนวนสติกเกอร์กลายเป็นเลขคี่ (เช่นบางแถวถูกตัดออกเพราะข้อมูลไม่ครบ)
+                    // ให้พิมพ์ใบสุดท้ายซ้ำอีก 1 ใบ เพื่อให้ครบคู่เสมอ (1 แผ่น = 2 ใบ) แทนการบล็อกการพิมพ์
+                    if (stickerCards.length % 2 !== 0) {
+                        stickerCards.push(stickerCards[stickerCards.length - 1]);
+                    }
+                    // จัดสติกเกอร์เป็นแผ่นละ 2 ใบ ซ้าย-ขวา แต่ละแผ่นขึ้นหน้าใหม่
+                    for (let i = 0; i < stickerCards.length; i += 2) {
+                        const pair = stickerCards.slice(i, i + 2).join('');
+                        printHTML += `<div class="print-page">${pair}</div>`;
+                    }
+                } else {
+                    // [รูปแบบ 1 ใบ/แผ่น] 1 แผ่น = 1 ใบ ต่อแถวข้อมูล ไม่ต้องจับคู่หรือเติมใบซ้ำให้ครบคู่
+                    stickerCards.forEach(card => {
+                        printHTML += `<div class="print-page">${card}</div>`;
+                    });
+                }
+
+                printHTML += `
+                        <script>
+                            window.onload = function() {
+                                // สร้าง QR Code จริงลงในแต่ละกล่อง .sticker-qr จากข้อมูลที่แนบไว้ใน data-qrtext ก่อนสั่งพิมพ์
+                                // ใช้ไลบรารี qrcode-generator (kazuhikoarase) ฝังอยู่ในไฟล์นี้เลย (ไม่ต้องโหลดจากอินเทอร์เน็ต)
+                                // รองรับข้อความภาษาไทย/UTF-8 และเลือกขนาด QR (typeNumber) ให้อัตโนมัติตามความยาวข้อมูล
+                                document.querySelectorAll('.sticker-qr').forEach(function(el) {
+                                    const qrText = el.getAttribute('data-qrtext') || '';
+                                    if (!qrText) return;
+                                    try {
+                                        const qr = qrcode(0, 'M'); // typeNumber 0 = ให้ระบบเลือกขนาดที่พอดีเองอัตโนมัติ
+                                        qr.addData(qrText);
+                                        qr.make();
+                                        const img = document.createElement('img');
+                                        img.src = qr.createDataURL(6);
+                                        img.alt = 'QR Code';
+                                        el.appendChild(img);
+                                    } catch (err) {
+                                        console.error('QR generation failed:', err);
+                                        el.textContent = 'QR Error: ' + (err && err.message ? err.message : String(err));
+                                        el.style.fontSize = '8px';
+                                        el.style.whiteSpace = 'normal';
+                                        el.style.wordBreak = 'break-all';
+                                    }
+                                });
+                                setTimeout(() => {
+                                    window.print();
+                                    window.close();
+                                }, 300);
+                            };
+                        <\/script>
+                    </body>
+                    </html>
+                `;
+
+                // เปิดแท็บใหม่เพื่อสั่งพิมพ์สติกเกอร์ออกมา
+                const printWindow = window.open('', '_blank');
+                if (printWindow) {
+                    printWindow.document.write(printHTML);
+                    printWindow.document.close();
+                } else {
+                    showCustomModal(
+                        'เบราว์เซอร์บล็อกการพิมพ์', 
+                        'หน้าต่างสั่งพิมพ์ของเบราว์เซอร์ถูกระงับชั่วคราว (Pop-up Blocked) โปรดเลือก "อนุญาตการเปิดป๊อปอัพ" เพื่อดำเนินการพิมพ์สติกเกอร์กระสอบ', 
+                        'warning'
+                    );
+                }
+            }
+
+            // --- ปุ่ม "พิมพ์แถวที่เลือก": พิมพ์ทุกแถวที่ผู้ใช้ติ๊กเลือกไว้ในตาราง (รวมจำนวนสำเนาต่อแถว) ---
+            btnPrintCustom.addEventListener('click', () => {
+                if (!globalExcelData || globalExcelData.length < 2) return;
+
+                if (selectedPrintRows.size === 0) {
+                    showCustomModal(
+                        'ยังไม่ได้เลือกแถวที่จะพิมพ์',
+                        'โปรดติ๊กเลือกอย่างน้อย 1 แถวในตารางด้านล่าง (ช่องติ๊กด้านซ้ายสุดของแต่ละแถว) ก่อนสั่งพิมพ์',
+                        'warning'
+                    );
+                    return;
+                }
+
+                // เรียงสติกเกอร์ตามลำดับแถวที่แสดงในตาราง — 1 แผ่น = 1 ใบเสมอ (ไม่ต้องจับคู่)
+                // แถวที่มีการเลือก Batch/EXP ไว้หลายรายการ (Dropdown แบบเลือกได้หลายอัน) จะถูกขยายเป็นสติกเกอร์แยกคนละใบต่อรายการที่เลือก
+                // แถวที่มีการเลือก Batch/EXP ไว้หลายรายการ (Dropdown แบบเลือกได้หลายอัน) จะถูกขยายเป็นสติกเกอร์แยกคนละใบต่อรายการที่เลือก
+                const dataRows = getVisibleRowEntries()
+                    .filter(entry => selectedPrintRows.has(entry.originalIndex))
+                    .flatMap(entry => {
+                        const qty = printQuantities.get(entry.originalIndex) || 1;
+                        const huVal = selectedHu.has(entry.originalIndex) ? selectedHu.get(entry.originalIndex) : null;
+                        const labelPos = selectedBatchPosition.has(entry.originalIndex) ? selectedBatchPosition.get(entry.originalIndex) : null;
+                        const allCombos = getAllBatchExpOptionsForRow(entry.row);
+                        const chosenKeys = getEffectiveSelectedKeys(entry.originalIndex, entry.row, allCombos);
+                        const chosenCombos = allCombos.filter(o => chosenKeys.includes(o.key));
+                        const items = chosenCombos.length > 0 ? chosenCombos : [null];
+                        return items.flatMap(combo => Array(qty).fill({
+                            row: entry.row,
+                            batchPosition: combo ? combo.position : null,
+                            subIndex: combo ? combo.subIndex : null,
+                            labelPosition: labelPos,
+                            huValue: huVal
+                        }));
+                    });
+
+                printStickerRows(dataRows);
+            });
+        });
+    </script>
+</body>
+</html>
