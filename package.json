@@ -1,0 +1,21 @@
+{
+  "name": "chem-rechub",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Chem RecHUB — ระบบพิมพ์สติกเกอร์ติดกระสอบ",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node tests/server.test.js",
+    "pm2:start": "pm2 start ecosystem.config.js",
+    "pm2:reload": "pm2 reload chem-rechub",
+    "pm2:logs": "pm2 logs chem-rechub",
+    "build:css": "tailwindcss -c tailwind.config.js -i styles/tailwind.input.css -o vendor/tailwind.css --minify"
+  },
+  "devDependencies": {
+    "tailwindcss": "3.4.17"
+  }
+}

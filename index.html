@@ -1,49 +1,18 @@
 <!DOCTYPE html>
-<html lang=  "th">
+<html lang="th">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Business Data Portal - ระบบพิมพ์สติกเกอร์ติดกระสอบ</title>
-    
-    <!-- Tailwind CSS สำหรับตกแต่งเว็บ -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- SheetJS สำหรับอ่านไฟล์ Excel -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
-    <!-- Phosphor Icons สำหรับไอคอน -->
-    <script src="https://unpkg.com/@phosphor-icons/web"></script>
-
-    <!-- QRCode.js สำหรับสร้าง QR Code บนสติกเกอร์ -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-
-    <!-- การตั้งค่า Tailwind CSS Configuration ที่ถูกต้องผ่านแบบ CDN -->
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        corporate: {
-                            50: '#f0f9ff',
-                            100: '#e0f2fe',
-                            200: '#bae6fd',
-                            300: '#7dd3fc',
-                            400: '#38bdf8',
-                            500: '#0ea5e9',
-                            600: '#0284c7',
-                            700: '#0369a1',
-                            800: '#075985',
-                            900: '#0c4a6e'
-                        }
-                    },
-                    fontFamily: {
-                        sans: ['"Prompt"', 'sans-serif']
-                    }
-                }
-            }
-        }
-    </script>
-    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" href="data:,">
+    <meta name="description" content="ระบบพิมพ์สติกเกอร์ติดกระสอบ">
+    <meta name="color-scheme" content="light">
+    <!-- ไลบรารีทั้งหมดอยู่ใน vendor/ (ไม่พึ่งอินเทอร์เน็ต) — build CSS ใหม่ด้วย npm run build:css -->
+    <link rel="stylesheet" href="/vendor/tailwind.css">
+    <link rel="stylesheet" href="/vendor/fonts/prompt.css">
+    <link rel="stylesheet" href="/vendor/phosphor/regular.css">
+    <link rel="stylesheet" href="/vendor/phosphor/fill.css">
+    <script src="/vendor/xlsx.full.min.js"></script>
     <style>
         body { font-family: 'Prompt', sans-serif; }
         
@@ -3611,7 +3580,7 @@ var qrcode = function() {
 
 <\/script>
                         <style>
-                            @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700;800&display=swap');
+                            @import url('${location.origin}/vendor/fonts/sarabun.css');
                             
                             * {
                                 box-sizing: border-box;

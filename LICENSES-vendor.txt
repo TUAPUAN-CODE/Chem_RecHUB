@@ -1,0 +1,6 @@
+ไลบรารีที่ฝังไว้ในโฟลเดอร์ vendor/ (เก็บในรีโปเพื่อให้ใช้งานได้โดยไม่ต้องต่ออินเทอร์เน็ต)
+- SheetJS xlsx 0.18.5            Apache-2.0   vendor/xlsx.full.min.js
+- Phosphor Icons web 2.1.1       MIT          vendor/phosphor/
+- Prompt font (Fontsource 5.3.0) SIL OFL 1.1  vendor/fonts/
+- Tailwind CSS 3.4.17 (คอมไพล์เป็น vendor/tailwind.css)  MIT
+- qrcode-generator (Kazuhiko Arase) MIT — ฝังอยู่ใน index.html
