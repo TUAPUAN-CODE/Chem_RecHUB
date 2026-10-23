@@ -96,6 +96,11 @@
                             <i class="ph-fill ph-squares-four"></i> 2 ใบ/แผ่น
                         </button>
                     </div>
+                    <!-- ช่องค้นหา: กรองแถวในตารางจากข้อความในทุกคอลัมน์ (รหัส/ตัวย่อ/ชื่อ/Batch ฯลฯ) -->
+                    <div class="relative w-full sm:w-72">
+                        <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+                        <input id="row-search-input" type="search" autocomplete="off" placeholder="ค้นหารหัส ตัวย่อ ชื่อ หรือ Batch เช่น NXH, TGG..." title="พิมพ์เพื่อกรองแถวในตาราง (ค้นได้ทุกคอลัมน์ ไม่สนตัวพิมพ์เล็ก/ใหญ่)" class="w-full text-sm border border-gray-200 bg-white rounded-lg pl-9 pr-3 py-2 focus:ring-2 focus:ring-corporate-500/40 focus:border-corporate-400 outline-none">
+                    </div>
                     <button id="btn-select-all" type="button" class="text-xs text-gray-600 border border-gray-200 bg-white hover:bg-gray-50 hover:border-gray-300 px-3.5 py-2.5 rounded-lg font-medium transition">เลือกทุกแถวที่แสดงอยู่</button>
                     <button id="btn-select-none" type="button" class="text-xs text-gray-500 border border-gray-200 bg-white hover:bg-gray-50 hover:border-gray-300 px-3.5 py-2.5 rounded-lg font-medium transition">ล้างการเลือก</button>
                     <button id="btn-print-custom" class="bg-corporate-600 hover:bg-corporate-700 active:bg-corporate-800 text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition flex items-center gap-2 shadow-sm hover:shadow-md">
@@ -103,7 +108,7 @@
                     </button>
                 </div>
             </div>
-            <p class="px-6 py-3 text-xs text-gray-500 bg-gray-50/60 border-b border-gray-100 leading-relaxed">💡 เลือกรูปแบบการจัดหน้าพิมพ์ที่มุมขวาบน ("1 ใบ/แผ่น" แนวตั้ง หรือ "2 ใบ/แผ่น" วางคู่ซ้าย-ขวา — ขนาดกระดาษเท่าเดิมทั้ง 2 แบบ) จากนั้นติ๊กเลือกแถวที่ต้องการพิมพ์ในช่องด้านซ้ายของแต่ละแถว และตั้งค่า "จำนวน (ใบ)" ตามจำนวนสติกเกอร์ที่ต้องการจากแถวนั้น แล้วกด "พิมพ์แถวที่เลือก" หรือกดปุ่มพิมพ์ 🖨️ ที่ท้ายแต่ละแถวเพื่อพิมพ์เฉพาะแถวนั้นทันที — ระบบจะแสดง รหัส/ตัวย่อ/วันหมดอายุ บนสติกเกอร์ให้อัตโนมัติ (ระบบจะข้าม Batch ที่หมดอายุไปแล้วโดยอัตโนมัติ และซ่อนทั้งแถวหากทุก Batch หมดอายุหมดแล้ว)</p>
+            <p class="px-6 py-3 text-xs text-gray-500 bg-gray-50/60 border-b border-gray-100 leading-relaxed">💡 เลือกรูปแบบการจัดหน้าพิมพ์ที่มุมขวาบน ("1 ใบ/แผ่น" แนวตั้ง หรือ "2 ใบ/แผ่น" วางคู่ซ้าย-ขวา — ขนาดกระดาษเท่าเดิมทั้ง 2 แบบ) จากนั้นติ๊กเลือกแถวที่ต้องการพิมพ์ในช่องด้านซ้ายของแต่ละแถว และตั้งค่า "จำนวน (ใบ)" ตามจำนวนสติกเกอร์ที่ต้องการจากแถวนั้น (ใช้ช่องค้นหาเพื่อกรองหาแถวได้ — แถวที่ติ๊กไว้แล้วจะยังถูกพิมพ์ แม้ไม่อยู่ในผลค้นหาปัจจุบัน) แล้วกด "พิมพ์แถวที่เลือก" หรือกดปุ่มพิมพ์ 🖨️ ที่ท้ายแต่ละแถวเพื่อพิมพ์เฉพาะแถวนั้นทันที — ระบบจะแสดง รหัส/ตัวย่อ/วันหมดอายุ บนสติกเกอร์ให้อัตโนมัติ (ระบบจะข้าม Batch ที่หมดอายุไปแล้วโดยอัตโนมัติ และซ่อนทั้งแถวหากทุก Batch หมดอายุหมดแล้ว)</p>
             
             <!-- ตารางแสดงผลที่มีการเพิ่มแถบเลื่อน (Scrollbar) ทั้งในแนวนอนและแนวตั้ง -->
             <div class="overflow-x-auto max-h-[600px] overflow-y-auto relative">
@@ -164,6 +169,7 @@
             const btnPrintCustom = document.getElementById('btn-print-custom');
             const btnSelectAll = document.getElementById('btn-select-all');
             const btnSelectNone = document.getElementById('btn-select-none');
+            const rowSearchInput = document.getElementById('row-search-input');
             const btnLayoutSingle = document.getElementById('btn-layout-single');
             const btnLayoutPair = document.getElementById('btn-layout-pair');
 
@@ -417,6 +423,8 @@
                     selectedBatchPosition = new Map();
                     selectedHu = new Map();
                     selectedSubOption = new Map();
+                    // ไฟล์/ชีตใหม่ -> ล้างคำค้นหาเดิม ไม่งั้นตารางของไฟล์ใหม่อาจว่างเปล่าเพราะยังกรองด้วยคำค้นของไฟล์ก่อนหน้า
+                    rowSearchInput.value = '';
 
                     viewTable.classList.remove('hidden');
                     renderTable();
@@ -885,9 +893,28 @@
                 return rowEntries;
             }
 
-            // ปุ่ม "เลือกทุกแถวที่แสดงอยู่"
+            // --- กรองแถวตามคำค้นหา (ค้นในทุกคอลัมน์ ไม่สนตัวพิมพ์เล็ก/ใหญ่) ---
+            // ใช้กรองเฉพาะ "สิ่งที่แสดงในตาราง" และปุ่ม/ช่องติ๊กเลือกทั้งหมดเท่านั้น
+            // ตอนพิมพ์ยังใช้ getVisibleRowEntries() ตรงๆ เพื่อให้แถวที่ติ๊กไว้แล้วถูกพิมพ์ครบ แม้ไม่อยู่ในผลค้นหาปัจจุบัน
+            // (ค้นหา NXH -> ติ๊ก -> ค้นหา TGG -> ติ๊ก -> พิมพ์ได้ทั้งสองชุดในครั้งเดียว)
+            function filterRowsBySearch(rowEntries) {
+                const query = rowSearchInput.value.trim().toLowerCase();
+                if (!query) return rowEntries;
+                return rowEntries.filter(entry => entry.row.some(cell => {
+                    return cell !== undefined && cell !== null && cell.toString().toLowerCase().includes(query);
+                }));
+            }
+
+            // พิมพ์ในช่องค้นหา -> รีเฟรชตาราง (หน่วงเล็กน้อย ไม่ต้องสร้างตารางใหม่ทุกตัวอักษรที่พิมพ์รัวๆ)
+            let searchDebounceTimer = null;
+            rowSearchInput.addEventListener('input', () => {
+                clearTimeout(searchDebounceTimer);
+                searchDebounceTimer = setTimeout(renderTable, 150);
+            });
+
+            // ปุ่ม "เลือกทุกแถวที่แสดงอยู่" (เฉพาะแถวที่ตรงกับคำค้นหาปัจจุบัน)
             btnSelectAll.addEventListener('click', () => {
-                getVisibleRowEntries().forEach(entry => selectedPrintRows.add(entry.originalIndex));
+                filterRowsBySearch(getVisibleRowEntries()).forEach(entry => selectedPrintRows.add(entry.originalIndex));
                 renderTable();
             });
 
@@ -909,15 +936,23 @@
 
                 emptyState.classList.add('hidden');
 
-                const rowEntries = getVisibleRowEntries();
-                rowCount.textContent = `พบข้อมูล ${rowEntries.length} รายการ (เลือกพิมพ์ ${selectedPrintRows.size} แถว)`;
+                const allRowEntries = getVisibleRowEntries();
+                const rowEntries = filterRowsBySearch(allRowEntries);
+                const searchText = rowSearchInput.value.trim();
+                const updateRowCount = () => {
+                    rowCount.textContent = searchText
+                        ? `แสดง ${rowEntries.length} / ${allRowEntries.length} รายการ (เลือกพิมพ์ ${selectedPrintRows.size} แถว)`
+                        : `พบข้อมูล ${rowEntries.length} รายการ (เลือกพิมพ์ ${selectedPrintRows.size} แถว)`;
+                };
+                updateRowCount();
 
                 // หาคอลัมน์ที่ "ไม่มีข้อมูลเลยสักแถว" (เช่น Batch (3) ที่มีหัวตารางในไฟล์ Excel แต่ยังไม่เคยมีการกรอกข้อมูลจริง)
                 // เพื่อซ่อนคอลัมน์เหล่านี้ออกจากตาราง ทำให้ตารางดูสะอาดขึ้น โดยไม่ได้ลบข้อมูลออกจากไฟล์ต้นฉบับแต่อย่างใด
                 // หากภายหลังมีการกรอกข้อมูลลงคอลัมน์นี้ ระบบจะแสดงคอลัมน์นี้กลับมาให้อัตโนมัติ
+                // (เช็คจากทุกแถว ไม่ใช่แค่ผลค้นหา เพื่อไม่ให้คอลัมน์หายๆ โผล่ๆ ระหว่างพิมพ์ค้นหา)
                 const emptyColumnIndices = new Set();
                 headers.forEach((_, colIdx) => {
-                    const hasAnyValue = rowEntries.some(entry => {
+                    const hasAnyValue = allRowEntries.some(entry => {
                         const v = entry.row[colIdx];
                         return v !== undefined && v !== null && v.toString().trim() !== '';
                     });
@@ -978,7 +1013,9 @@
                     const td = document.createElement('td');
                     td.colSpan = visibleHeaderIndices.length + 7;
                     td.className = 'px-6 py-8 text-center text-gray-500';
-                    td.textContent = 'ไม่มีข้อมูลในแถวถัดไป';
+                    td.textContent = allRowEntries.length > 0 && searchText
+                        ? `ไม่พบรายการที่ตรงกับ "${searchText}"`
+                        : 'ไม่มีข้อมูลในแถวถัดไป';
                     tr.appendChild(td);
                     tableBody.appendChild(tr);
                     selectAllCheckbox.disabled = true;
@@ -1012,7 +1049,7 @@
                         } else {
                             selectedPrintRows.delete(entry.originalIndex);
                         }
-                        rowCount.textContent = `พบข้อมูล ${rowEntries.length} รายการ (เลือกพิมพ์ ${selectedPrintRows.size} แถว)`;
+                        updateRowCount();
                         selectAllCheckbox.checked = rowEntries.every(en => selectedPrintRows.has(en.originalIndex));
                     });
                     tdCheck.appendChild(cb);
